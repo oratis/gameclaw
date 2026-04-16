@@ -32,13 +32,23 @@ export async function GET(
     );
   }
 
-  const ltokenV2 = decrypt(account.ltokenV2);
-  const info = await getCheckinInfo(gameId as GameSlug, ltokenV2, account.ltuidV2);
+  try {
+    const ltokenV2 = decrypt(account.ltokenV2);
+    const ltuidV2 = decrypt(account.ltuidV2);
+    const info = await getCheckinInfo(gameId as GameSlug, ltokenV2, ltuidV2);
 
-  return NextResponse.json({
-    gameId,
-    uid: account.uid,
-    nickname: account.nickname,
-    checkinInfo: info,
-  });
+    return NextResponse.json({
+      gameId,
+      uid: account.uid,
+      nickname: account.nickname,
+      checkinInfo: info,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to get status",
+      },
+      { status: 500 }
+    );
+  }
 }

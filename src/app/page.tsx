@@ -1,9 +1,6 @@
-"use client";
-
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { GAMES, GAME_SLUGS } from "@/lib/hoyolab/constants";
 import {
   Zap,
@@ -14,9 +11,9 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-export default function Home() {
-  const t = useTranslations("landing");
-  const tCommon = useTranslations("common");
+export default async function Home() {
+  const t = await getTranslations("landing");
+  const tCommon = await getTranslations("common");
 
   const features = [
     { icon: Zap, title: t("featureAutoCheckin"), desc: t("featureAutoCheckinDesc") },
@@ -46,16 +43,18 @@ export default function Home() {
             {t("heroDesc")}
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Link href="/signup">
-              <Button size="lg" className="gap-2">
-                {t("cta")}
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
+            >
+              {t("cta")}
+              <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="/docs">
-              <Button variant="secondary" size="lg">
-                {tCommon("docs")}
-              </Button>
+            <Link
+              href="/docs"
+              className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-white/10"
+            >
+              {tCommon("docs")}
             </Link>
           </div>
         </div>
@@ -141,11 +140,12 @@ export default function Home() {
             <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-emerald-400" />
             <h2 className="mb-4 text-2xl font-bold text-white">{t("cta")}</h2>
             <p className="mb-6 text-gray-400">{t("heroDesc")}</p>
-            <Link href="/signup">
-              <Button size="lg" className="gap-2">
-                {tCommon("getStarted")}
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
+            >
+              {tCommon("getStarted")}
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </Card>
         </div>

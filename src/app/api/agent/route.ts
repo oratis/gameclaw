@@ -38,15 +38,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "No linked account" }, { status: 404 });
     }
 
-    const ltokenV2 = decrypt(account.ltokenV2);
-    const info = await getCheckinInfo(gameId as GameSlug, ltokenV2, account.ltuidV2);
+    try {
+      const ltokenV2 = decrypt(account.ltokenV2);
+      const ltuidV2 = decrypt(account.ltuidV2);
+      const info = await getCheckinInfo(gameId as GameSlug, ltokenV2, ltuidV2);
 
-    return NextResponse.json({
-      gameId,
-      uid: account.uid,
-      nickname: account.nickname,
-      checkinInfo: info,
-    });
+      return NextResponse.json({
+        gameId,
+        uid: account.uid,
+        nickname: account.nickname,
+        checkinInfo: info,
+      });
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Failed to get status" },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({
@@ -77,13 +85,14 @@ export async function POST(req: NextRequest) {
 
     const accounts = await prisma.gameAccount.findMany({ where });
 
-    const results = await Promise.all(
+    const settled = await Promise.allSettled(
       accounts.map(async (account) => {
         const ltokenV2 = decrypt(account.ltokenV2);
+        const ltuidV2 = decrypt(account.ltuidV2);
         const result = await performCheckin(
           account.gameId as GameSlug,
           ltokenV2,
-          account.ltuidV2
+          ltuidV2
         );
 
         await prisma.checkInLog.create({
@@ -108,6 +117,17 @@ export async function POST(req: NextRequest) {
         return { gameId: account.gameId, uid: account.uid, ...result };
       })
     );
+
+    const results = settled.map((s, i) => {
+      if (s.status === "fulfilled") return s.value;
+      return {
+        gameId: accounts[i].gameId,
+        uid: accounts[i].uid,
+        success: false,
+        status: "failed" as const,
+        message: s.reason instanceof Error ? s.reason.message : "Unknown error",
+      };
+    });
 
     return NextResponse.json({ results });
   }

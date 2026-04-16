@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       nickname: role?.nickname || null,
       server: role?.region || null,
       ltokenV2: encrypt(ltokenV2),
-      ltuidV2: ltuidV2,
+      ltuidV2: encrypt(ltuidV2),
     },
     select: {
       id: true,

@@ -74,7 +74,11 @@
     "recentHistory": "Recent History",
     "checked": "Checked In",
     "pending": "Pending",
-    "failed": "Failed"
+    "failed": "Failed",
+    "active": "Active",
+    "inactive": "Inactive",
+    "on": "ON",
+    "off": "OFF"
   },
   "games": {
     "title": "Supported Games",

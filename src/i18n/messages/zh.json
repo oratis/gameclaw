@@ -74,7 +74,11 @@
     "recentHistory": "最近记录",
     "checked": "已签到",
     "pending": "待签到",
-    "failed": "失败"
+    "failed": "失败",
+    "active": "活跃",
+    "inactive": "未激活",
+    "on": "开启",
+    "off": "关闭"
   },
   "games": {
     "title": "支持的游戏",

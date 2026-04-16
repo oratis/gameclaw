@@ -3,6 +3,8 @@
 
 import argparse
 import json
+import os
+import sys
 import requests
 
 GAME_ROLES_URL = "https://api-os-takumi.mihoyo.com/binding/api/getUserGameRolesByCookie"
@@ -26,6 +28,7 @@ def get_accounts(ltoken: str, ltuid: str) -> list:
 
     try:
         resp = requests.get(GAME_ROLES_URL, headers=headers, timeout=30)
+        resp.raise_for_status()
         data = resp.json()
 
         if data["retcode"] == 0 and data["data"]["list"]:
@@ -40,19 +43,34 @@ def get_accounts(ltoken: str, ltuid: str) -> list:
                 }
                 for role in data["data"]["list"]
             ]
+        if data["retcode"] in (-100, -10001):
+            print(f"Error: Invalid or expired cookies (retcode {data['retcode']})", file=sys.stderr)
+            sys.exit(1)
         return []
+    except requests.HTTPError as e:
+        print(f"Error: HTTP {e.response.status_code}", file=sys.stderr)
+        sys.exit(1)
     except Exception as e:
-        return [{"error": str(e)}]
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Query HoYoLAB game accounts")
-    parser.add_argument("--ltoken", required=True, help="ltoken_v2 cookie value")
-    parser.add_argument("--ltuid", required=True, help="ltuid_v2 cookie value")
+    parser.add_argument("--ltoken", default=None, help="ltoken_v2 cookie value (or set LTOKEN_V2 env)")
+    parser.add_argument("--ltuid", default=None, help="ltuid_v2 cookie value (or set LTUID_V2 env)")
 
     args = parser.parse_args()
-    accounts = get_accounts(args.ltoken, args.ltuid)
 
+    # Prefer env vars over CLI args for security (CLI args visible in ps)
+    ltoken = args.ltoken or os.environ.get("LTOKEN_V2")
+    ltuid = args.ltuid or os.environ.get("LTUID_V2")
+
+    if not ltoken or not ltuid:
+        print("Error: Provide credentials via --ltoken/--ltuid or LTOKEN_V2/LTUID_V2 env vars", file=sys.stderr)
+        sys.exit(1)
+
+    accounts = get_accounts(ltoken, ltuid)
     print(json.dumps(accounts, indent=2))
 
 

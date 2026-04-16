@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { GAMES } from "@/lib/hoyolab/constants";
 import type { GameSlug } from "@/types/games";
 import Link from "next/link";
-import { Plus, RefreshCw, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Plus, RefreshCw, CheckCircle2, Clock } from "lucide-react";
 
 interface LinkedAccount {
   id: string;
@@ -21,12 +21,20 @@ interface LinkedAccount {
   lastCheckin: string | null;
 }
 
+function isCheckedInToday(lastCheckin: string | null): boolean {
+  if (!lastCheckin) return false;
+  const checkinDate = new Date(lastCheckin).toISOString().slice(0, 10);
+  const todayDate = new Date().toISOString().slice(0, 10);
+  return checkinDate === todayDate;
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const t = useTranslations("dashboard");
   const [accounts, setAccounts] = useState<LinkedAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/user/accounts")
@@ -35,16 +43,25 @@ export default function DashboardPage() {
         setAccounts(data.accounts || []);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        setError(err.message || "Failed to load accounts");
+        setLoading(false);
+      });
   }, []);
 
   async function handleCheckinAll() {
     setCheckingIn(true);
+    setError(null);
     try {
-      await fetch("/api/checkin", { method: "POST" });
+      const checkinRes = await fetch("/api/checkin", { method: "POST" });
+      if (!checkinRes.ok) {
+        throw new Error("Check-in request failed");
+      }
       const res = await fetch("/api/user/accounts");
       const data = await res.json();
       setAccounts(data.accounts || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Check-in failed");
     } finally {
       setCheckingIn(false);
     }
@@ -81,6 +98,12 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {error && (
+          <div className="mb-6 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {error}
+          </div>
+        )}
+
         {loading ? (
           <div className="flex h-64 items-center justify-center">
             <RefreshCw className="h-8 w-8 animate-spin text-gray-500" />
@@ -99,10 +122,7 @@ export default function DashboardPage() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {accounts.map((account) => {
               const game = GAMES[account.gameId as GameSlug];
-              const isCheckedToday =
-                account.lastCheckin &&
-                new Date(account.lastCheckin).toDateString() ===
-                  new Date().toDateString();
+              const checkedToday = isCheckedInToday(account.lastCheckin);
 
               return (
                 <Card key={account.id} className="space-y-4">
@@ -128,13 +148,13 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <Badge variant={account.isActive ? "success" : "default"}>
-                      {account.isActive ? "Active" : "Inactive"}
+                      {account.isActive ? t("active") : t("inactive")}
                     </Badge>
                   </div>
 
                   <div className="flex items-center justify-between border-t border-white/5 pt-4">
                     <div className="flex items-center gap-2 text-sm">
-                      {isCheckedToday ? (
+                      {checkedToday ? (
                         <>
                           <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                           <span className="text-emerald-400">{t("checked")}</span>
@@ -149,7 +169,7 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2 text-sm text-gray-400">
                       {t("autoCheckin")}:
                       <Badge variant={account.autoCheckin ? "success" : "default"}>
-                        {account.autoCheckin ? "ON" : "OFF"}
+                        {account.autoCheckin ? t("on") : t("off")}
                       </Badge>
                     </div>
                   </div>

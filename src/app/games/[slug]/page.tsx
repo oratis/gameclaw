@@ -1,23 +1,48 @@
-"use client";
-
-import { use } from "react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { GAMES } from "@/lib/hoyolab/constants";
+import { GAMES, GAME_SLUGS } from "@/lib/hoyolab/constants";
 import type { GameSlug } from "@/types/games";
 import { ArrowRight, CheckCircle2, Users, Zap } from "lucide-react";
+import type { Metadata } from "next";
 
-export default function GamePage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params);
-  const t = useTranslations("games");
+export function generateStaticParams() {
+  return GAME_SLUGS.map((slug) => ({ slug }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  if (!(slug in GAMES)) return {};
+  const game = GAMES[slug as GameSlug];
+  return {
+    title: `${game.name} - Auto Daily Check-in`,
+    description: `Automate ${game.name} daily check-in on HoYoLAB. ${game.description}`,
+    openGraph: {
+      title: `${game.name} - GameClaw Auto Check-in`,
+      description: `Never miss a ${game.name} daily check-in again. Automatically claim rewards with GameClaw.`,
+    },
+  };
+}
+
+export default async function GamePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const t = await getTranslations("games");
 
   if (!(slug in GAMES)) notFound();
 
   const game = GAMES[slug as GameSlug];
   const gameT = t.raw(slug) as Record<string, string>;
+
+  const featureIcons = [Zap, CheckCircle2, Users];
 
   return (
     <div className="px-4 py-16 sm:px-6 lg:px-8">
@@ -33,16 +58,18 @@ export default function GamePage({ params }: { params: Promise<{ slug: string }>
           <h1 className="text-3xl font-bold text-white sm:text-4xl">{gameT.title}</h1>
           <p className="mt-3 text-lg text-gray-400">{gameT.tagline}</p>
           <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Link href="/signup">
-              <Button size="lg" className="gap-2">
-                {t("linkAccount")}
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
+            >
+              {t("linkAccount")}
+              <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="/docs">
-              <Button variant="secondary" size="lg">
-                {t("viewDetails")}
-              </Button>
+            <Link
+              href="/docs"
+              className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-white/10"
+            >
+              {t("viewDetails")}
             </Link>
           </div>
         </div>
@@ -51,20 +78,17 @@ export default function GamePage({ params }: { params: Promise<{ slug: string }>
         <section className="mb-16">
           <h2 className="mb-8 text-2xl font-bold text-white">{t("features")}</h2>
           <div className="grid gap-6 md:grid-cols-3">
-            {["feature1", "feature2", "feature3"].map((key, i) => (
-              <Card key={key}>
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10">
-                  {i === 0 ? (
-                    <Zap className="h-5 w-5 text-emerald-400" />
-                  ) : i === 1 ? (
-                    <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                  ) : (
-                    <Users className="h-5 w-5 text-emerald-400" />
-                  )}
-                </div>
-                <p className="text-sm text-gray-300">{gameT[key]}</p>
-              </Card>
-            ))}
+            {["feature1", "feature2", "feature3"].map((key, i) => {
+              const Icon = featureIcons[i];
+              return (
+                <Card key={key}>
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10">
+                    <Icon className="h-5 w-5 text-emerald-400" />
+                  </div>
+                  <p className="text-sm text-gray-300">{gameT[key]}</p>
+                </Card>
+              );
+            })}
           </div>
         </section>
 
@@ -88,11 +112,12 @@ export default function GamePage({ params }: { params: Promise<{ slug: string }>
           <h2 className="mb-4 text-xl font-bold text-white">
             {gameT.tagline}
           </h2>
-          <Link href="/signup">
-            <Button size="lg" className="gap-2">
-              {t("linkAccount")}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+          <Link
+            href="/signup"
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
+          >
+            {t("linkAccount")}
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </Card>
       </div>

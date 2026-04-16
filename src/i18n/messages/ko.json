@@ -74,7 +74,11 @@
     "recentHistory": "최근 기록",
     "checked": "체크인 완료",
     "pending": "대기 중",
-    "failed": "실패"
+    "failed": "실패",
+    "active": "활성",
+    "inactive": "비활성",
+    "on": "켜짐",
+    "off": "꺼짐"
   },
   "games": {
     "title": "지원 게임",

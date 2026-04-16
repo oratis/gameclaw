@@ -10,8 +10,8 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const gameId = searchParams.get("gameId");
-  const limit = parseInt(searchParams.get("limit") || "50", 10);
-  const offset = parseInt(searchParams.get("offset") || "0", 10);
+  const limit = Math.max(1, parseInt(searchParams.get("limit") || "50", 10) || 50);
+  const offset = Math.max(0, parseInt(searchParams.get("offset") || "0", 10) || 0);
 
   const where: Record<string, unknown> = { userId: session.user.id };
   if (gameId) where.gameId = gameId;

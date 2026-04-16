@@ -22,11 +22,14 @@ export async function PUT(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const autoCheckin = typeof body.autoCheckin === "boolean" ? body.autoCheckin : account.autoCheckin;
+  const isActive = typeof body.isActive === "boolean" ? body.isActive : account.isActive;
+
   const updated = await prisma.gameAccount.update({
     where: { id },
     data: {
-      autoCheckin: body.autoCheckin ?? account.autoCheckin,
-      isActive: body.isActive ?? account.isActive,
+      autoCheckin,
+      isActive,
     },
     select: {
       id: true,

@@ -19,10 +19,11 @@ export async function POST() {
     accounts.map(async (account) => {
       try {
         const ltokenV2 = decrypt(account.ltokenV2);
+        const ltuidV2 = decrypt(account.ltuidV2);
         const result = await performCheckin(
           account.gameId as GameSlug,
           ltokenV2,
-          account.ltuidV2
+          ltuidV2
         );
 
         await prisma.checkInLog.create({

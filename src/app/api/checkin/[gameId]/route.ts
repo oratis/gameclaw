@@ -32,27 +32,39 @@ export async function POST(
     );
   }
 
-  const ltokenV2 = decrypt(account.ltokenV2);
-  const result = await performCheckin(gameId as GameSlug, ltokenV2, account.ltuidV2);
+  try {
+    const ltokenV2 = decrypt(account.ltokenV2);
+    const ltuidV2 = decrypt(account.ltuidV2);
+    const result = await performCheckin(gameId as GameSlug, ltokenV2, ltuidV2);
 
-  await prisma.checkInLog.create({
-    data: {
-      gameAccountId: account.id,
-      userId: session.user.id,
-      gameId,
-      status: result.status,
-      reward: result.reward || null,
-      errorMessage: result.success ? null : result.message,
-      triggeredBy: "manual",
-    },
-  });
-
-  if (result.status === "success") {
-    await prisma.gameAccount.update({
-      where: { id: account.id },
-      data: { lastCheckin: new Date() },
+    await prisma.checkInLog.create({
+      data: {
+        gameAccountId: account.id,
+        userId: session.user.id,
+        gameId,
+        status: result.status,
+        reward: result.reward || null,
+        errorMessage: result.success ? null : result.message,
+        triggeredBy: "manual",
+      },
     });
-  }
 
-  return NextResponse.json(result);
+    if (result.status === "success") {
+      await prisma.gameAccount.update({
+        where: { id: account.id },
+        data: { lastCheckin: new Date() },
+      });
+    }
+
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        status: "failed",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
 }

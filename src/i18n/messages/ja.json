@@ -74,7 +74,11 @@
     "recentHistory": "最近の履歴",
     "checked": "チェックイン済み",
     "pending": "保留中",
-    "failed": "失敗"
+    "failed": "失敗",
+    "active": "有効",
+    "inactive": "無効",
+    "on": "オン",
+    "off": "オフ"
   },
   "games": {
     "title": "対応ゲーム",

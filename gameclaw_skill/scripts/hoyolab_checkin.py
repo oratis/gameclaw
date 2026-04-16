@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import sys
 import requests
 
@@ -63,14 +64,19 @@ def checkin(game_slug: str, ltoken: str, ltuid: str) -> dict:
     try:
         url = f"{game['sign_url']}?act_id={game['act_id']}"
         resp = requests.post(url, headers=headers, json={"act_id": game["act_id"]}, timeout=30)
+        resp.raise_for_status()
         data = resp.json()
 
         if data["retcode"] == 0:
             return {"success": True, "status": "success", "message": f"Checked in for {game['name']}"}
         elif data["retcode"] == -5003:
             return {"success": True, "status": "already_claimed", "message": f"Already checked in for {game['name']}"}
+        elif data["retcode"] in (-1002, -1071):
+            return {"success": False, "status": "rate_limited", "message": "Rate limited. Try again later."}
         else:
             return {"success": False, "status": "failed", "message": data.get("message", f"Error {data['retcode']}")}
+    except requests.HTTPError as e:
+        return {"success": False, "status": "failed", "message": f"HTTP error: {e.response.status_code}"}
     except Exception as e:
         return {"success": False, "status": "failed", "message": str(e)}
 
@@ -87,6 +93,7 @@ def get_info(game_slug: str, ltoken: str, ltuid: str) -> dict:
     try:
         url = f"{game['info_url']}?act_id={game['act_id']}"
         resp = requests.get(url, headers=headers, timeout=30)
+        resp.raise_for_status()
         data = resp.json()
 
         if data["retcode"] == 0:
@@ -97,28 +104,42 @@ def get_info(game_slug: str, ltoken: str, ltuid: str) -> dict:
                 "is_sign": data["data"]["is_sign"],
             }
         return {"error": data.get("message", f"Error {data['retcode']}")}
+    except requests.HTTPError as e:
+        return {"error": f"HTTP error: {e.response.status_code}"}
     except Exception as e:
         return {"error": str(e)}
 
 
 def main():
     parser = argparse.ArgumentParser(description="HoYoLAB daily check-in")
-    parser.add_argument("--ltoken", required=True, help="ltoken_v2 cookie value")
-    parser.add_argument("--ltuid", required=True, help="ltuid_v2 cookie value")
+    parser.add_argument("--ltoken", default=None, help="ltoken_v2 cookie value (or set LTOKEN_V2 env)")
+    parser.add_argument("--ltuid", default=None, help="ltuid_v2 cookie value (or set LTUID_V2 env)")
     parser.add_argument("--game", required=True, choices=list(GAMES.keys()) + ["all"], help="Game to check in")
     parser.add_argument("--info", action="store_true", help="Get check-in info instead of signing")
 
     args = parser.parse_args()
 
+    # Prefer env vars over CLI args for security (CLI args visible in ps)
+    ltoken = args.ltoken or os.environ.get("LTOKEN_V2")
+    ltuid = args.ltuid or os.environ.get("LTUID_V2")
+
+    if not ltoken or not ltuid:
+        print("Error: Provide credentials via --ltoken/--ltuid or LTOKEN_V2/LTUID_V2 env vars", file=sys.stderr)
+        sys.exit(1)
+
     games_to_process = list(GAMES.keys()) if args.game == "all" else [args.game]
     results = []
 
-    for game_slug in games_to_process:
+    for i, game_slug in enumerate(games_to_process):
         if args.info:
-            result = get_info(game_slug, args.ltoken, args.ltuid)
+            result = get_info(game_slug, ltoken, ltuid)
         else:
-            result = checkin(game_slug, args.ltoken, args.ltuid)
+            result = checkin(game_slug, ltoken, ltuid)
         results.append(result)
+        # Delay between games to avoid rate limiting
+        if i < len(games_to_process) - 1:
+            import time
+            time.sleep(1.5)
 
     print(json.dumps(results if len(results) > 1 else results[0], indent=2))
 

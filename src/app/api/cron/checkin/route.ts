@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
 import { performCheckin } from "@/lib/hoyolab/checkin";
+import { logger } from "@/lib/logger";
 import type { GameSlug } from "@/types/games";
 
 /**
@@ -27,6 +28,8 @@ export async function POST(req: NextRequest) {
   const accounts = await prisma.gameAccount.findMany({
     where: { isActive: true, autoCheckin: true },
   });
+
+  logger.info("cron checkin started", { accountCount: accounts.length });
 
   let success = 0;
   let alreadyClaimed = 0;
@@ -69,6 +72,11 @@ export async function POST(req: NextRequest) {
       }
     } catch (error) {
       failed++;
+      logger.error("cron checkin error", error, {
+        userId: account.userId,
+        gameAccountId: account.id,
+        gameId: account.gameId,
+      });
       await prisma.checkInLog.create({
         data: {
           gameAccountId: account.id,
@@ -87,11 +95,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({
+  const summary = {
     processed: accounts.length,
     success,
     alreadyClaimed,
     failed,
     durationMs: Date.now() - startedAt,
-  });
+  };
+
+  logger.info("cron checkin finished", summary);
+
+  return NextResponse.json(summary);
 }

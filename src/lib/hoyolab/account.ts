@@ -8,9 +8,8 @@ export async function getGameAccounts(
   ltokenV2: string,
   ltuidV2: string
 ): Promise<GameRoleInfo[]> {
-  const client = new HoYoLabClient(ltokenV2, ltuidV2);
-
   try {
+    const client = new HoYoLabClient(ltokenV2, ltuidV2);
     const res = await client.request<GameRolesData>(GAME_ROLES_URL);
     if (res.retcode === 0 && res.data?.list) {
       return res.data.list;

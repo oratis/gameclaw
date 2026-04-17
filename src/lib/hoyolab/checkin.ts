@@ -13,9 +13,9 @@ export async function performCheckin(
     return { success: false, status: "failed", message: `Unknown game: ${gameSlug}` };
   }
 
-  const client = new HoYoLabClient(ltokenV2, ltuidV2);
-
   try {
+    const client = new HoYoLabClient(ltokenV2, ltuidV2);
+
     const res = await client.request<CheckInSignData>(
       `${game.checkinUrl}?act_id=${game.actId}`,
       "POST",
@@ -60,9 +60,9 @@ export async function getCheckinInfo(
   const game = GAMES[gameSlug];
   if (!game) return null;
 
-  const client = new HoYoLabClient(ltokenV2, ltuidV2);
-
   try {
+    const client = new HoYoLabClient(ltokenV2, ltuidV2);
+
     const res = await client.request<CheckInInfoData>(
       `${game.infoUrl}?act_id=${game.actId}`
     );

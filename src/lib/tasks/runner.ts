@@ -22,6 +22,7 @@ import {
   requiresL3,
 } from "@/lib/billing/quota";
 import { dispatchL3Task } from "@/lib/l3/dispatcher";
+import { updateCircuitForScope } from "@/lib/billing/circuit";
 import type { Capability, TaskResult } from "@/adapters/types";
 import type { GameAccount, Prisma } from "@prisma/client";
 import { Prisma as PrismaNs } from "@prisma/client";
@@ -176,6 +177,13 @@ async function finalize(
 ): Promise<RunTaskOutcome> {
   const finishedAt = new Date();
   const durationMs = finishedAt.getTime() - startedAt.getTime();
+
+  // Risk circuit-breaker recompute, best-effort. Done for non-L3 paths here;
+  // L3 paths do this from the worker-callback endpoint when the worker
+  // reports a terminal status.
+  if (account) {
+    updateCircuitForScope(`adapter:${account.gameId}`).catch(() => undefined);
+  }
 
   await prisma.task.update({
     where: { id: taskId },

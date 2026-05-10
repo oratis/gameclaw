@@ -1,52 +1,106 @@
 /**
- * L3 worker dispatcher (M3 — architectural stub).
+ * L3 worker dispatcher.
  *
- * What this becomes (per plan-tasks.md M3):
- *   - Each L3 task type maps to a worker pool (gameclaw-runner-arknights, ...)
- *   - Pool is a Cloud Run Job spec containing waydroid + Android + game APK +
- *     a wrapped OSS automation tool (MAA / March7thAssistant / ok-wuwa)
- *   - dispatchL3Task() enqueues the task → Cloud Run Jobs API spawns a worker
- *     instance → worker pulls credentials from Secret Manager via task.id
- *   - Worker writes screenshots to GCS, posts result to /api/internal/worker-callback
+ * Path:
+ *   runTask(T3 capability)
+ *     → dispatchL3Task()
+ *       → checkCircuit() — refuse if vendor's circuit breaker is open
+ *       → resolve worker pool by gameSlug
+ *       → create WorkerJob row + one-time callbackToken
+ *       → call Cloud Run Jobs API to start an execution
+ *       → return "running" status (worker writes back via /api/internal/worker-callback)
  *
- * What it is today: a stub that returns failed TaskResult until M3 ships.
- *
- * Why ship the stub now:
- *   1. Capability enum + adapter declarations + UI surface must align with the
- *      eventual L3 surface. The stub locks the contract.
- *   2. enforceL3Entitlement() in runTask exercises the Pro+ gate now, so the
- *      billing path is correct on day 1 of M3 launch.
- *   3. Lets us write end-to-end tests that exercise quota → entitlement →
- *      dispatch → result flow without a real emulator running.
+ * The Task row stays in "running" until the worker callback flips it to
+ * success/failed. AI Verifier (verifier.ts) post-processes the screenshots.
  */
 
 import type { Capability, Credentials, Task, TaskResult } from "@/adapters/types";
+import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
+import { generateCallbackToken } from "./auth";
+import { dispatchCloudRunJob } from "./cloudrun";
+import { checkCircuit } from "@/lib/billing/circuit";
 
 export interface L3DispatchInput {
-  /** The Task row's ID — workers reference it for status callbacks. */
   taskId: string;
-  /** User's adapter credentials (already decrypted). */
   creds: Credentials;
-  /** The capability to execute (e.g. weekly_dungeon). */
   task: Task;
-  /** Game slug — picks the right worker pool. */
   gameSlug: string;
-  /** Optional UID for accounts with multiple roles. */
   uid?: string;
 }
 
-const M3_NOT_LIVE_MESSAGE =
-  "L3 capability requested. The vision-worker fleet is on the M3 roadmap and not yet deployed. Track progress in plan-tasks.md.";
+function poolForGameSlug(gameSlug: string): string {
+  // Map adapter slug → worker pool. e.g. "arknights" → "l3-arknights".
+  // Multi-region adapters map to the same pool (e.g. genshin / genshin-cn → l3-genshin).
+  const base = gameSlug.replace(/-cn$/, "");
+  return `l3-${base}`;
+}
 
 export async function dispatchL3Task(
-  _input: L3DispatchInput
+  input: L3DispatchInput
 ): Promise<TaskResult> {
-  // M3 will replace this with a Cloud Run Jobs invocation. Until then, every
-  // L3 task fails fast with a clear message — no half-implemented behavior.
-  return {
-    status: "failed",
-    message: M3_NOT_LIVE_MESSAGE,
-  };
+  // 1. Risk circuit breaker — refuse if vendor is suspended.
+  const circuit = await checkCircuit(`adapter:${input.gameSlug}`);
+  if (circuit.state === "open") {
+    return {
+      status: "skipped",
+      message: `L3 dispatch skipped: circuit breaker is OPEN for ${input.gameSlug} — recent failure rate ${(circuit.failureRate * 100).toFixed(1)}%`,
+    };
+  }
+
+  // 2. Allocate WorkerJob row + token.
+  const pool = poolForGameSlug(input.gameSlug);
+  const callbackToken = generateCallbackToken();
+  const job = await prisma.workerJob.create({
+    data: {
+      taskId: input.taskId,
+      pool,
+      callbackToken,
+      executionState: "PENDING",
+    },
+  });
+
+  // 3. Dispatch via Cloud Run Jobs.
+  try {
+    const out = await dispatchCloudRunJob({
+      pool,
+      taskId: input.taskId,
+      callbackToken,
+    });
+    await prisma.workerJob.update({
+      where: { id: job.id },
+      data: {
+        executionName: out.executionName,
+        executionState: "RUNNING",
+        startedAt: new Date(),
+      },
+    });
+    logger.info("L3 dispatched", {
+      taskId: input.taskId,
+      pool,
+      executionName: out.executionName,
+    });
+    return {
+      status: "success",
+      message: `L3 worker dispatched (${pool}). Result will arrive via callback.`,
+      data: { executionName: out.executionName, pool },
+    };
+  } catch (e) {
+    const errMsg = e instanceof Error ? e.message : String(e);
+    await prisma.workerJob.update({
+      where: { id: job.id },
+      data: {
+        executionState: "FAILED",
+        errorMessage: errMsg,
+        completedAt: new Date(),
+      },
+    });
+    logger.error("L3 dispatch failed", e, { taskId: input.taskId, pool });
+    return {
+      status: "failed",
+      message: `L3 dispatch failed: ${errMsg}`,
+    };
+  }
 }
 
 export type { Capability };

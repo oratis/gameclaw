@@ -250,6 +250,83 @@ model PayPalWebhookEvent {
   @@index([eventType, receivedAt])
 }
 
+/// L3 worker pool registry. One row per spawned worker instance (Cloud Run
+/// Jobs execution, GCE VM, etc.). Created when dispatched, updated by the
+/// worker via /api/internal/worker-callback.
+model Worker {
+  id              String    @id @default(cuid())
+  /// Worker pool key, e.g. "l3-arknights", "l3-starrail"
+  pool            String
+  /// Cloud Run Jobs execution name (projects/.../executions/...) or VM ID
+  executionName   String?
+  /// "pending" | "running" | "completed" | "failed" | "cancelled"
+  status          String    @default("pending")
+  currentTaskId   String?
+  region          String    @default("us-central1")
+  imageVersion    String?
+  /// null = shared pool; user ID = dedicated worker (Pro+ feature)
+  ownerUserId     String?
+  totalTasksRun   Int       @default(0)
+  successRate     Float?
+  lastHeartbeatAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  jobs WorkerJob[]
+
+  @@index([pool, status])
+  @@index([currentTaskId])
+}
+
+/// One row per L3 dispatch: links a Task to a Worker execution and tracks
+/// the lifecycle. The callbackToken authenticates the worker calling back
+/// with results.
+model WorkerJob {
+  id             String    @id @default(cuid())
+  taskId         String    @unique
+  workerId       String?
+  pool           String
+  executionName  String?
+  /// "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED"
+  executionState String    @default("PENDING")
+  /// 64-char hex; one-time secret the worker uses on callback
+  callbackToken  String
+  /// Single-use; set to true after the worker callback succeeds
+  callbackUsed   Boolean   @default(false)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  screenshotUrls String[]
+  errorMessage   String?
+  createdAt      DateTime  @default(now())
+
+  worker Worker? @relation(fields: [workerId], references: [id], onDelete: SetNull)
+
+  @@index([executionName])
+  @@index([executionState])
+}
+
+/// Risk circuit-breaker state per vendor or per (vendor, capability) scope.
+/// When a vendor's recent failure rate spikes (e.g. they changed their API),
+/// we open the circuit and stop dispatching to it until manually closed or
+/// a cooldown passes.
+model RiskCircuitState {
+  id          String    @id @default(cuid())
+  /// "vendor:hoyoverse" | "adapter:wuwa" | "capability:weekly_dungeon"
+  scope       String    @unique
+  /// "closed" (normal) | "open" (suspended)
+  state       String    @default("closed")
+  failureRate Float     @default(0)
+  windowStart DateTime?
+  windowEnd   DateTime?
+  triggeredBy String?
+  resumesAt   DateTime?
+  notes       String?
+  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime  @default(now())
+
+  @@index([state])
+}
+
 /// Pre-launch demand signal collection — "what game / what task / what price".
 /// Public POST; no auth needed.
 model DemandSignal {

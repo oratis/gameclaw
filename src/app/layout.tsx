@@ -18,36 +18,42 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "GameClaw - Automate Your Daily Gaming Rewards",
+    default: "GameClaw — AI 游戏代练 · Universal AI Game Boost",
     template: "%s | GameClaw",
   },
   description:
-    "Never miss a daily check-in again. GameClaw automatically claims your HoYoLAB rewards for Genshin Impact, Honkai Star Rail, Zenless Zone Zero, and more.",
+    "GameClaw is the AI agent that plays the boring parts of every game for you. Daily check-ins today, dailies and dungeons tomorrow. Cross-vendor: HoYoverse, 米游社, Kurogames, Hypergryph, and more.",
   keywords: [
     "GameClaw",
-    "HoYoLAB",
-    "daily check-in",
+    "AI 代练",
+    "AI game boost",
+    "auto checkin",
+    "daily reward automation",
     "Genshin Impact",
     "Honkai Star Rail",
     "Zenless Zone Zero",
-    "auto check-in",
-    "game rewards",
-    "OpenClaw",
+    "Wuthering Waves",
+    "鸣潮",
+    "Arknights",
+    "明日方舟",
+    "米游社",
+    "HoYoLAB",
+    "OpenClaw skill",
   ],
   authors: [{ name: "GameClaw" }],
   openGraph: {
-    title: "GameClaw - Automate Your Daily Gaming Rewards",
+    title: "GameClaw — AI 游戏代练 · Universal AI Game Boost",
     description:
-      "Never miss a daily check-in again. Auto-claim HoYoLAB rewards for all HoYoverse games.",
+      "AI plays the boring parts. Daily check-ins across 10+ games today; dailies, stamina, and dungeons next.",
     url: "https://gogameclaw.com",
     siteName: "GameClaw",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "GameClaw - Automate Your Daily Gaming Rewards",
+    title: "GameClaw — AI 游戏代练",
     description:
-      "Never miss a daily check-in again. Auto-claim HoYoLAB rewards for all HoYoverse games.",
+      "AI plays the boring parts. 10+ games. Daily check-ins today, dailies and dungeons next.",
   },
   robots: {
     index: true,

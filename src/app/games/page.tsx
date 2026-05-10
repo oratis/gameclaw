@@ -1,54 +1,107 @@
-"use client";
-
-import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Card } from "@/components/ui/Card";
-import { GAMES, GAME_SLUGS } from "@/lib/hoyolab/constants";
-import { ArrowRight } from "lucide-react";
-import type { Metadata } from "next";
+import { listAdapters } from "@/adapters";
+import type { GameAdapter } from "@/adapters/types";
 
-export default function GamesPage() {
-  const t = useTranslations("games");
+const VENDOR_LABEL: Record<string, string> = {
+  hoyoverse: "HoYoLAB · 米游社",
+  kuro: "Kurogames · 库街区",
+  hypergryph: "Hypergryph · 森空岛",
+};
+
+const VENDOR_ACCENT: Record<string, string> = {
+  hoyoverse: "#4ECDC4",
+  kuro: "#A78BFA",
+  hypergryph: "#FBBF24",
+};
+
+export default async function GamesPage() {
+  const t = await getTranslations("games");
+  const adapters = listAdapters();
+
+  const byVendor: Record<string, GameAdapter[]> = {};
+  for (const a of adapters) {
+    (byVendor[a.vendor] ??= []).push(a);
+  }
+  const vendorOrder = ["hoyoverse", "kuro", "hypergryph"];
 
   return (
     <div className="px-4 py-16 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 text-center">
-          <h1 className="text-3xl font-bold text-white sm:text-4xl">{t("title")}</h1>
-          <p className="mt-4 text-lg text-gray-400">{t("subtitle")}</p>
+          <h1 className="text-3xl font-bold text-white sm:text-4xl">
+            {t("title")}
+          </h1>
+          <p className="mt-4 text-lg text-gray-400">
+            {t("subtitleCount", { count: adapters.length })}
+          </p>
         </div>
 
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {GAME_SLUGS.map((slug) => {
-            const game = GAMES[slug];
-            const gameT = t.raw(slug) as Record<string, string>;
+        <div className="space-y-12">
+          {vendorOrder.map((vendor) => {
+            const list = byVendor[vendor];
+            if (!list || list.length === 0) return null;
+            const accent = VENDOR_ACCENT[vendor] ?? "#9CA3AF";
             return (
-              <Link key={slug} href={`/games/${slug}`}>
-                <Card className="group h-full cursor-pointer transition-all hover:border-emerald-500/30 hover:bg-white/[0.07]">
-                  <div
-                    className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl text-3xl font-bold"
-                    style={{ backgroundColor: game.color + "20", color: game.color }}
-                  >
-                    {game.name[0]}
-                  </div>
-                  <h2 className="mb-1 text-xl font-semibold text-white group-hover:text-emerald-400 transition-colors">
-                    {gameT.title}
+              <div key={vendor}>
+                <div className="mb-4 flex items-center gap-3 border-b border-white/10 pb-3">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: accent }}
+                  />
+                  <h2 className="text-base font-semibold text-white">
+                    {VENDOR_LABEL[vendor] ?? vendor}
                   </h2>
-                  <p className="mb-4 text-sm text-gray-400">{gameT.tagline}</p>
-                  <ul className="space-y-2">
-                    {["feature1", "feature2", "feature3"].map((key) => (
-                      <li key={key} className="flex items-start gap-2 text-sm text-gray-300">
-                        <span className="mt-0.5 text-emerald-400">&#10003;</span>
-                        {gameT[key]}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-4 flex items-center gap-1 text-sm font-medium text-emerald-400 transition-transform group-hover:translate-x-1">
-                    {t("viewDetails")}
-                    <ArrowRight className="h-4 w-4" />
-                  </div>
-                </Card>
-              </Link>
+                  <span className="text-xs text-gray-500">
+                    {list.length} {t("gamesUnit")}
+                  </span>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {list.map((a) => (
+                    <Card key={a.slug}>
+                      <div className="flex items-start gap-3">
+                        <div
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl font-bold"
+                          style={{
+                            backgroundColor: accent + "20",
+                            color: accent,
+                          }}
+                        >
+                          {a.displayName[0]}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate text-base font-semibold text-white">
+                            {a.displayName}
+                          </h3>
+                          <p className="font-mono text-xs text-gray-500">
+                            {a.slug}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                          {t("capabilities")}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {a.capabilities.map((c) => (
+                            <span
+                              key={c}
+                              className="rounded bg-white/5 px-2 py-0.5 text-xs text-gray-300"
+                            >
+                              {c}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        <span className="rounded bg-white/5 px-2 py-0.5 text-[11px] text-gray-400">
+                          auth: {a.authMethod}
+                        </span>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             );
           })}
         </div>

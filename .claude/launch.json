@@ -3,8 +3,11 @@
   "configurations": [
     {
       "name": "gameclaw-dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/oratis/Documents/Claude/GameClaw && DATABASE_URL=\"postgresql://postgres:$(cat /tmp/_db_pass)@localhost:5433/gameclaw\" NEXTAUTH_SECRET=\"$(cat /tmp/_nextauth)\" ENCRYPTION_KEY=\"$(cat /tmp/_enc_key)\" CRON_SECRET=\"$(cat /tmp/_cron)\" NEXTAUTH_URL=\"http://localhost:3000\" AUTH_TRUST_HOST=true npm run dev"
+      ],
       "port": 3000
     }
   ]

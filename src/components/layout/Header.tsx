@@ -27,6 +27,9 @@ export function Header() {
           <Link href="/docs" className="text-sm text-gray-300 transition-colors hover:text-white">
             {t("docs")}
           </Link>
+          <Link href="/demand" className="text-sm text-gray-300 transition-colors hover:text-white">
+            {t("request")}
+          </Link>
           {session ? (
             <>
               <Link href="/dashboard" className="text-sm text-gray-300 transition-colors hover:text-white">
@@ -76,6 +79,9 @@ export function Header() {
             </Link>
             <Link href="/docs" className="rounded-lg px-3 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white" onClick={() => setMobileMenuOpen(false)}>
               {t("docs")}
+            </Link>
+            <Link href="/demand" className="rounded-lg px-3 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white" onClick={() => setMobileMenuOpen(false)}>
+              {t("request")}
             </Link>
             {session ? (
               <>

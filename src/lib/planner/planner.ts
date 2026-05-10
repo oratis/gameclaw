@@ -15,6 +15,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { CAPABILITIES, PlanSchema, type Plan, type PlannedTask } from "./schema";
 import { PLANNER_SYSTEM_PROMPT } from "./system-prompt";
 import { computeCostUsd } from "./cost";
+import { incrementPlanCall, usdToMicroDollars } from "@/lib/usage/meter";
 
 // Re-export for convenience.
 export type { Plan, PlannedTask };
@@ -38,6 +39,8 @@ export interface PlannerInput {
   accounts: PlannerAccount[];
   /** Optional locale hint to nudge the model's response language. */
   locale?: string;
+  /** Caller's user ID — used for usage metering. Optional for testing. */
+  userId?: string;
 }
 
 export interface PlannerOutcome {
@@ -134,6 +137,15 @@ export async function proposePlan(input: PlannerInput): Promise<PlannerOutcome> 
     cacheReadInputTokens,
     cacheCreationInputTokens,
   });
+
+  if (input.userId) {
+    // Best-effort metering; never let a billing-side hiccup fail a successful plan.
+    incrementPlanCall(input.userId, {
+      tokensIn: inputTokens + cacheReadInputTokens + cacheCreationInputTokens,
+      tokensOut: outputTokens,
+      costUsdMicro: usdToMicroDollars(costUsd),
+    }).catch(() => undefined);
+  }
 
   return {
     plan,

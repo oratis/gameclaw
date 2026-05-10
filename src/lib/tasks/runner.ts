@@ -13,6 +13,7 @@
 import { prisma } from "@/lib/prisma";
 import { buildCreds } from "@/lib/credentials";
 import { getAdapter } from "@/adapters";
+import { incrementTaskCount } from "@/lib/usage/meter";
 import type { Capability, TaskResult } from "@/adapters/types";
 import type { GameAccount, Prisma } from "@prisma/client";
 import { Prisma as PrismaNs } from "@prisma/client";
@@ -43,6 +44,10 @@ export interface RunTaskOutcome {
 
 export async function runTask(input: RunTaskInput): Promise<RunTaskOutcome> {
   const startedAt = new Date();
+
+  // Increment monthly usage counter. Best-effort — never block the task on a
+  // metering failure (logged elsewhere).
+  incrementTaskCount(input.userId).catch(() => undefined);
 
   const task = await prisma.task.create({
     data: {

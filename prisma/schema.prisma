@@ -25,6 +25,7 @@ model User {
   tasks         Task[]
   taskTemplates TaskTemplate[]
   subscription  Subscription?
+  usageMeters   UsageMeter[]
 }
 
 model Account {
@@ -189,16 +190,64 @@ model Subscription {
   tier                 String    @default("free")
   /// -1 means unlimited
   monthlyTaskQuota     Int       @default(90)
-  /// LLM spend ceiling, USD cents per month
+  /// AI Planner calls per month (Pro+'s primary differentiator)
+  monthlyPlanCallQuota Int       @default(5)
+  /// LLM spend ceiling, USD cents per month (-1 = unlimited)
   monthlyAiBudgetCents Int       @default(0)
-  /// Pro+ flag — gates L3 capabilities
+  /// Pro+ flag — gates L3 capabilities (M3 — not yet wired)
   l3Enabled            Boolean   @default(false)
+  /// PayPal subscription ID (e.g. "I-BW452GLLEP1G")
+  paypalSubscriptionId String?   @unique
+  /// PayPal plan ID this subscription is on (e.g. "P-5ML4271244454362WXNWU5NQ")
+  paypalPlanId         String?
+  /// Cached PayPal subscription status (ACTIVE | SUSPENDED | CANCELLED | EXPIRED)
+  paypalStatus         String?
   startedAt            DateTime  @default(now())
   renewsAt             DateTime?
   /// "active" | "past_due" | "canceled"
   status               String    @default("active")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Per-user, per-billing-period usage counter. Increment in runTask /
+/// proposePlan; query in quota enforcement.
+model UsageMeter {
+  id              String   @id @default(cuid())
+  userId          String
+  /// "YYYY-MM" UTC, e.g. "2026-05". Resets monthly.
+  period          String
+  taskCount       Int      @default(0)
+  planCallCount   Int      @default(0)
+  llmTokensIn     Int      @default(0)
+  llmTokensOut   Int      @default(0)
+  /// LLM cost in USD micro-dollars (× 1e6) to avoid float arithmetic.
+  llmCostUsdMicro BigInt   @default(0)
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, period])
+  @@index([period])
+}
+
+/// Append-only audit trail of PayPal webhook events we received and how we
+/// processed them. Useful for debugging billing disputes.
+model PayPalWebhookEvent {
+  id            String   @id @default(cuid())
+  /// PayPal's event ID (e.g. "WH-XXX") — used for idempotency
+  paypalEventId String   @unique
+  eventType     String
+  /// Raw event body for replay/debugging
+  rawBody       Json
+  /// "received" | "processed" | "failed" | "skipped"
+  status        String   @default("received")
+  errorMessage  String?
+  receivedAt    DateTime @default(now())
+  processedAt   DateTime?
+
+  @@index([eventType, receivedAt])
 }
 
 /// Pre-launch demand signal collection — "what game / what task / what price".

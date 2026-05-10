@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/adapters";
 import { proposePlan } from "@/lib/planner/planner";
 import type { PlannerAccount } from "@/lib/planner/planner";
+import { checkQuota } from "@/lib/billing/quota";
 
 const MAX_PROMPT_LEN = 1000;
 
@@ -45,6 +46,22 @@ export async function POST(req: NextRequest) {
 
   const locale = typeof body.locale === "string" ? body.locale : undefined;
 
+  const quota = await checkQuota(session.user.id, "plan_call");
+  if (!quota.allowed) {
+    return NextResponse.json(
+      {
+        error: quota.reason,
+        code: "quota_exceeded",
+        kind: "plan_call",
+        tier: quota.tier,
+        used: quota.used,
+        limit: quota.limit,
+        upgradeUrl: "/pricing",
+      },
+      { status: 402 }
+    );
+  }
+
   const dbAccounts = await prisma.gameAccount.findMany({
     where: { userId: session.user.id, isActive: true },
     select: {
@@ -69,7 +86,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const outcome = await proposePlan({ prompt, accounts, locale });
+    const outcome = await proposePlan({
+      prompt,
+      accounts,
+      locale,
+      userId: session.user.id,
+    });
     return NextResponse.json({
       plan: outcome.plan,
       usage: outcome.usage,

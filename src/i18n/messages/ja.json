@@ -16,6 +16,7 @@
     "docs": "ドキュメント",
     "request": "ゲームをリクエスト",
     "plan": "AIプラン",
+    "pricing": "料金",
     "back": "戻る",
     "next": "次へ",
     "submit": "送信",
@@ -170,6 +171,7 @@
     "docs": "ドキュメント",
     "request": "ゲームをリクエスト",
     "plan": "AIプラン",
+    "pricing": "料金",
     "privacy": "プライバシー",
     "terms": "利用規約"
   },

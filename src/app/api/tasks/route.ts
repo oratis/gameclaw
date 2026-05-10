@@ -11,6 +11,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { runTask } from "@/lib/tasks/runner";
 import { hasAdapter } from "@/adapters";
+import { checkQuota } from "@/lib/billing/quota";
 import type { Capability } from "@/adapters/types";
 
 const ALL_CAPABILITIES = new Set<Capability>([
@@ -112,6 +113,24 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+  }
+
+  // Quota check before doing any work — one POST = one batch, but each task
+  // counts toward the meter, so the user must have headroom for the whole batch.
+  const quota = await checkQuota(session.user.id, "task");
+  if (!quota.allowed) {
+    return NextResponse.json(
+      {
+        error: quota.reason,
+        code: "quota_exceeded",
+        kind: "task",
+        tier: quota.tier,
+        used: quota.used,
+        limit: quota.limit,
+        upgradeUrl: "/pricing",
+      },
+      { status: 402 }
+    );
   }
 
   const settled = await Promise.allSettled(

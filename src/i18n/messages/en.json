@@ -16,6 +16,7 @@
     "docs": "Docs",
     "request": "Request a Game",
     "plan": "Plan",
+    "pricing": "Pricing",
     "back": "Back",
     "next": "Next",
     "submit": "Submit",
@@ -170,6 +171,7 @@
     "docs": "Documentation",
     "request": "Request a Game",
     "plan": "Plan",
+    "pricing": "Pricing",
     "privacy": "Privacy",
     "terms": "Terms"
   },

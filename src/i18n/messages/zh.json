@@ -15,6 +15,7 @@
     "games": "游戏",
     "docs": "文档",
     "request": "申请新游戏",
+    "plan": "AI 规划",
     "back": "返回",
     "next": "下一步",
     "submit": "提交",
@@ -168,6 +169,7 @@
     "github": "GitHub",
     "docs": "文档",
     "request": "申请新游戏",
+    "plan": "AI 规划",
     "privacy": "隐私政策",
     "terms": "服务条款"
   },

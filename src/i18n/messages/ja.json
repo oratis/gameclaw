@@ -15,6 +15,7 @@
     "games": "ゲーム",
     "docs": "ドキュメント",
     "request": "ゲームをリクエスト",
+    "plan": "AIプラン",
     "back": "戻る",
     "next": "次へ",
     "submit": "送信",
@@ -168,6 +169,7 @@
     "github": "GitHub",
     "docs": "ドキュメント",
     "request": "ゲームをリクエスト",
+    "plan": "AIプラン",
     "privacy": "プライバシー",
     "terms": "利用規約"
   },

@@ -11,6 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.1",
     "@auth/prisma-adapter": "^2.11.1",
     "@prisma/client": "^6.19.2",
     "bcryptjs": "^3.0.3",
@@ -22,7 +23,8 @@
     "next-intl": "^4.8.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

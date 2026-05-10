@@ -15,6 +15,7 @@
     "games": "Games",
     "docs": "Docs",
     "request": "Request a Game",
+    "plan": "Plan",
     "back": "Back",
     "next": "Next",
     "submit": "Submit",
@@ -168,6 +169,7 @@
     "github": "GitHub",
     "docs": "Documentation",
     "request": "Request a Game",
+    "plan": "Plan",
     "privacy": "Privacy",
     "terms": "Terms"
   },

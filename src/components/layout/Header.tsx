@@ -35,6 +35,9 @@ export function Header() {
               <Link href="/dashboard" className="text-sm text-gray-300 transition-colors hover:text-white">
                 {t("dashboard")}
               </Link>
+              <Link href="/plan" className="inline-flex items-center gap-1 text-sm text-emerald-300 transition-colors hover:text-emerald-200">
+                ✦ {t("plan")}
+              </Link>
               <button
                 onClick={() => signOut()}
                 className="text-sm text-gray-300 transition-colors hover:text-white"
@@ -87,6 +90,9 @@ export function Header() {
               <>
                 <Link href="/dashboard" className="rounded-lg px-3 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white" onClick={() => setMobileMenuOpen(false)}>
                   {t("dashboard")}
+                </Link>
+                <Link href="/plan" className="rounded-lg px-3 py-2 text-sm text-emerald-300 hover:bg-white/5 hover:text-emerald-200" onClick={() => setMobileMenuOpen(false)}>
+                  ✦ {t("plan")}
                 </Link>
                 <button
                   onClick={() => { signOut(); setMobileMenuOpen(false); }}

@@ -15,6 +15,7 @@
     "games": "게임",
     "docs": "문서",
     "request": "게임 요청",
+    "plan": "AI 플랜",
     "back": "뒤로",
     "next": "다음",
     "submit": "제출",
@@ -168,6 +169,7 @@
     "github": "GitHub",
     "docs": "문서",
     "request": "게임 요청",
+    "plan": "AI 플랜",
     "privacy": "개인정보처리방침",
     "terms": "이용약관"
   },

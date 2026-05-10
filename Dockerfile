@@ -12,6 +12,8 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Ensure public/ exists; Next.js standalone copy will fail otherwise.
+RUN mkdir -p public
 RUN npx prisma generate
 RUN npm run build
 

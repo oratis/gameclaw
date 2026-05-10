@@ -44,6 +44,8 @@ export async function POST(req: NextRequest) {
         gameAccountId: account.id,
         capability: "checkin",
         triggeredBy: "cron",
+        // Cron is system-initiated — don't debit the user's personal quota.
+        bypassQuota: true,
       });
 
       if (result.status === "success") success++;

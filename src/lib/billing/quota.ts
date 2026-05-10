@@ -9,8 +9,43 @@
 import { prisma } from "@/lib/prisma";
 import { readMeter } from "@/lib/usage/meter";
 import { TIERS, type TierId } from "./tiers";
+import type { Capability } from "@/adapters/types";
 
 export type QuotaKind = "task" | "plan_call";
+
+/**
+ * T3 capabilities — require an L3 worker (Pro+ only). M3 stack not live yet;
+ * dispatcher returns a clear "not yet deployed" message until the worker
+ * fleet ships.
+ */
+const L3_CAPABILITIES: ReadonlySet<Capability> = new Set([
+  "weekly_dungeon",
+  "infrastructure_shift",
+  "material_farm",
+  "auto_battle",
+]);
+
+export function requiresL3(capability: Capability): boolean {
+  return L3_CAPABILITIES.has(capability);
+}
+
+export class QuotaExceededError extends Error {
+  readonly code = "quota_exceeded";
+  constructor(readonly decision: QuotaDecision, readonly kind: QuotaKind) {
+    super(decision.reason ?? "Quota exceeded");
+    this.name = "QuotaExceededError";
+  }
+}
+
+export class L3NotEntitledError extends Error {
+  readonly code = "l3_not_entitled";
+  constructor(readonly tier: TierId, readonly capability: Capability) {
+    super(
+      `Capability '${capability}' requires Pro+ tier (L3 worker). Current tier: ${tier}.`
+    );
+    this.name = "L3NotEntitledError";
+  }
+}
 
 export interface QuotaDecision {
   allowed: boolean;
@@ -60,4 +95,32 @@ export async function checkQuota(
   }
 
   return { allowed: true, tier, limit, used };
+}
+
+/**
+ * Throw if quota exhausted. Convenience wrapper for callers that prefer
+ * exception-based control flow (runTask, planner).
+ */
+export async function enforceQuota(
+  userId: string,
+  kind: QuotaKind
+): Promise<void> {
+  const decision = await checkQuota(userId, kind);
+  if (!decision.allowed) {
+    throw new QuotaExceededError(decision, kind);
+  }
+}
+
+/**
+ * Throw if the user's tier doesn't entitle them to L3 worker capabilities.
+ */
+export async function enforceL3Entitlement(
+  userId: string,
+  capability: Capability
+): Promise<void> {
+  if (!requiresL3(capability)) return;
+  const tier = await getEffectiveTier(userId);
+  if (!TIERS[tier].l3Enabled) {
+    throw new L3NotEntitledError(tier, capability);
+  }
 }

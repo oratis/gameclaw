@@ -10,15 +10,20 @@ export type AuthMethod = "cookie" | "oauth" | "token";
 
 export type Capability =
   // Tier 1 — public web/BBS API surface (live)
-  | "checkin"          // game-side daily check-in (signin reward)
-  | "checkin_info"     // query check-in streak / today's status
-  | "list_accounts"    // enumerate game accounts visible to the credentials
-  | "bbs_daily_task"   // forum/BBS daily tasks (community signin, multi-board signin)
-  | "redeem_code"      // exchange a gift code for in-game rewards
-  | "account_status"   // read-only "daily note" — resin / trailblaze power / etc.
+  | "checkin"               // game-side daily check-in (signin reward)
+  | "checkin_info"          // query check-in streak / today's status
+  | "list_accounts"         // enumerate game accounts visible to the credentials
+  | "bbs_daily_task"        // forum/BBS daily tasks (community signin, multi-board signin)
+  | "redeem_code"           // exchange a gift code for in-game rewards
+  | "account_status"        // read-only "daily note" — resin / trailblaze power / etc.
   // Tier 2 — semi-public client API (next milestone)
-  | "mail_claim"       // claim in-game mail rewards
-  | "stamina_spend";   // dispatch / commission to consume stamina
+  | "mail_claim"            // claim in-game mail rewards
+  | "stamina_spend"         // dispatch / commission to consume stamina
+  // Tier 3 — L3 vision worker (Pro+ only; M3 fleet not yet deployed)
+  | "weekly_dungeon"        // weekly bosses, dungeons, end-game gauntlets
+  | "infrastructure_shift"  // Arknights base management (MAA's strength)
+  | "material_farm"         // run a stage N times for drops
+  | "auto_battle";          // generic per-stage auto-fight
 
 export interface CredentialField {
   /** Internal key used in the Credentials map. */

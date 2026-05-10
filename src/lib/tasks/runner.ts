@@ -14,9 +14,19 @@ import { prisma } from "@/lib/prisma";
 import { buildCreds } from "@/lib/credentials";
 import { getAdapter } from "@/adapters";
 import { incrementTaskCount } from "@/lib/usage/meter";
+import {
+  enforceL3Entitlement,
+  enforceQuota,
+  L3NotEntitledError,
+  QuotaExceededError,
+  requiresL3,
+} from "@/lib/billing/quota";
+import { dispatchL3Task } from "@/lib/l3/dispatcher";
 import type { Capability, TaskResult } from "@/adapters/types";
 import type { GameAccount, Prisma } from "@prisma/client";
 import { Prisma as PrismaNs } from "@prisma/client";
+
+export { QuotaExceededError, L3NotEntitledError };
 
 export type TriggerSource =
   | "manual"
@@ -35,6 +45,12 @@ export interface RunTaskInput {
   triggeredBy: TriggerSource;
   templateRunId?: string;
   templateStepIdx?: number;
+  /**
+   * Skip per-user quota enforcement. ONLY for system-initiated callers
+   * (cron, internal workers) where the user didn't trigger the run and so
+   * shouldn't have their personal quota debited or blocked.
+   */
+  bypassQuota?: boolean;
 }
 
 export interface RunTaskOutcome {
@@ -43,6 +59,14 @@ export interface RunTaskOutcome {
 }
 
 export async function runTask(input: RunTaskInput): Promise<RunTaskOutcome> {
+  // Quota + L3 entitlement enforcement happens BEFORE we create a Task row,
+  // so denied requests don't pollute the audit trail.
+  // Cron / internal callers can opt out via bypassQuota.
+  if (!input.bypassQuota) {
+    await enforceQuota(input.userId, "task");
+    await enforceL3Entitlement(input.userId, input.capability);
+  }
+
   const startedAt = new Date();
 
   // Increment monthly usage counter. Best-effort — never block the task on a
@@ -103,10 +127,26 @@ export async function runTask(input: RunTaskInput): Promise<RunTaskOutcome> {
   let result: TaskResult;
   try {
     const creds = buildCreds(account);
-    result = await adapter.execute(
-      { capability: input.capability, params: input.params },
-      creds
-    );
+    if (requiresL3(input.capability)) {
+      // L3 capabilities go through the worker dispatcher (M3 stub for now).
+      result = await dispatchL3Task({
+        taskId: task.id,
+        creds,
+        task: { capability: input.capability, params: input.params },
+        gameSlug: input.gameSlug,
+        uid: account.uid,
+      });
+      // Tag the task row so we can filter L3 traffic in queries.
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { backendTier: "L3" },
+      });
+    } else {
+      result = await adapter.execute(
+        { capability: input.capability, params: input.params },
+        creds
+      );
+    }
   } catch (e) {
     result = {
       status: "failed",

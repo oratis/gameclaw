@@ -11,18 +11,29 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { runTask } from "@/lib/tasks/runner";
 import { hasAdapter } from "@/adapters";
-import { checkQuota } from "@/lib/billing/quota";
+import {
+  checkQuota,
+  L3NotEntitledError,
+  QuotaExceededError,
+} from "@/lib/billing/quota";
 import type { Capability } from "@/adapters/types";
 
 const ALL_CAPABILITIES = new Set<Capability>([
+  // T1
   "checkin",
   "checkin_info",
   "list_accounts",
   "bbs_daily_task",
   "redeem_code",
   "account_status",
+  // T2
   "mail_claim",
   "stamina_spend",
+  // T3 (L3 worker — Pro+ only; runTask returns 'failed' until M3 ships)
+  "weekly_dungeon",
+  "infrastructure_shift",
+  "material_farm",
+  "auto_battle",
 ]);
 
 /**
@@ -152,6 +163,26 @@ export async function POST(req: NextRequest) {
         capability: inputs[i].capability,
         taskId: s.value.taskId,
         ...s.value.result,
+      };
+    }
+    // QuotaExceededError / L3NotEntitledError surface as structured failures
+    // so the UI can offer a one-click upgrade.
+    if (s.reason instanceof QuotaExceededError) {
+      return {
+        gameSlug: inputs[i].gameSlug,
+        capability: inputs[i].capability,
+        status: "failed" as const,
+        code: s.reason.code,
+        message: s.reason.message,
+      };
+    }
+    if (s.reason instanceof L3NotEntitledError) {
+      return {
+        gameSlug: inputs[i].gameSlug,
+        capability: inputs[i].capability,
+        status: "failed" as const,
+        code: s.reason.code,
+        message: s.reason.message,
       };
     }
     return {

@@ -17,6 +17,9 @@ const ALL_CAPABILITIES = new Set<Capability>([
   "checkin",
   "checkin_info",
   "list_accounts",
+  "bbs_daily_task",
+  "redeem_code",
+  "account_status",
   "mail_claim",
   "stamina_spend",
 ]);

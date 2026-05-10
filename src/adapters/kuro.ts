@@ -6,7 +6,11 @@
  * src/lib/kuro/constants.ts.
  */
 
-import { getKuroRoles, performKuroCheckin } from "@/lib/kuro/checkin";
+import {
+  getKuroRoles,
+  performKuroBbsCheckin,
+  performKuroCheckin,
+} from "@/lib/kuro/checkin";
 import { KURO_GAMES, type KuroGameSlug } from "@/lib/kuro/constants";
 import type {
   AccountInfo,
@@ -22,7 +26,11 @@ const KURO_CREDENTIAL_FIELDS: CredentialField[] = [
   { key: "token", label: "Kurobbs Token (JWT)", required: true, sensitive: true },
 ];
 
-const KURO_CAPABILITIES: Capability[] = ["checkin", "list_accounts"];
+const KURO_CAPABILITIES: Capability[] = [
+  "checkin",
+  "list_accounts",
+  "bbs_daily_task",
+];
 
 function requireKuroToken(c: Credentials): string {
   const token = c.token;
@@ -93,6 +101,15 @@ function createKuroAdapter(slug: KuroGameSlug): GameAdapter {
             status: "success",
             message: `${accounts.length} account(s) found for ${game.name}`,
             data: accounts,
+          };
+        }
+
+        case "bbs_daily_task": {
+          const result = await performKuroBbsCheckin(token);
+          return {
+            status:
+              result.status === "already_claimed" ? "already_done" : result.status,
+            message: result.message,
           };
         }
 

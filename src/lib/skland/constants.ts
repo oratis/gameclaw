@@ -21,3 +21,14 @@ export const SKLAND_APP_NAMES: Record<string, string> = {
   endfield: "明日方舟: 终末地",
   popucom: "泡姆泡姆",
 };
+
+/**
+ * Skland forum board IDs (the `gameId` parameter for /api/v1/score/checkin).
+ * Distinct from `channelMasterId` used in /api/v1/game/attendance.
+ */
+export const SKLAND_BOARDS: Array<{ id: number; name: string }> = [
+  { id: 1, name: "明日方舟" },
+  { id: 2, name: "来自星辰" },
+  { id: 3, name: "明日方舟: 终末地" },
+  { id: 4, name: "泡姆泡姆" },
+];

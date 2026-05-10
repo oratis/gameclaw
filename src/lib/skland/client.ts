@@ -2,6 +2,7 @@ import {
   SKLAND_ATTENDANCE_PATH,
   SKLAND_BASE,
   SKLAND_BINDING_PATH,
+  SKLAND_BOARD_CHECKIN_PATH,
   SKLAND_USER_AGENT,
 } from "./constants";
 import { exchangeSklandCred, hypergryphOAuth } from "./auth";
@@ -112,5 +113,13 @@ export class SklandClient {
       uid: character.uid,
       gameId: character.channelMasterId,
     });
+  }
+
+  /**
+   * Forum-board check-in (different from game attendance). One per board:
+   * 1=明日方舟, 2=来自星辰, 3=终末地, 4=泡姆泡姆.
+   */
+  async boardCheckin(boardId: number): Promise<SklandResponse<unknown>> {
+    return this.post<unknown>(SKLAND_BOARD_CHECKIN_PATH, { gameId: boardId });
   }
 }

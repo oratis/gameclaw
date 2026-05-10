@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { performKuroCheckin, getKuroRoles } from "./checkin";
+import { performKuroCheckin, getKuroRoles, performKuroBbsCheckin } from "./checkin";
 import type { KuroRole } from "./types";
 
 function mockJsonResponse(body: unknown, opts: { status?: number; ok?: boolean } = {}) {
@@ -73,6 +73,51 @@ describe("performKuroCheckin", () => {
     );
 
     const result = await performKuroCheckin(TEST_TOKEN, "wuwa", ROLE);
+    expect(result.success).toBe(false);
+    expect(result.status).toBe("failed");
+  });
+});
+
+describe("performKuroBbsCheckin", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns success on code 200", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        mockJsonResponse({ code: 200, msg: "OK", data: null })
+      )
+    );
+
+    const result = await performKuroBbsCheckin(TEST_TOKEN);
+    expect(result.success).toBe(true);
+    expect(result.status).toBe("success");
+  });
+
+  it("returns already_claimed when forum says already-signed", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        mockJsonResponse({ code: 1505, msg: "今日已签到", data: null })
+      )
+    );
+
+    const result = await performKuroBbsCheckin(TEST_TOKEN);
+    expect(result.success).toBe(true);
+    expect(result.status).toBe("already_claimed");
+  });
+
+  it("returns failed on unknown error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        mockJsonResponse({ code: 500, msg: "服务器错误", data: null })
+      )
+    );
+
+    const result = await performKuroBbsCheckin(TEST_TOKEN);
     expect(result.success).toBe(false);
     expect(result.status).toBe("failed");
   });

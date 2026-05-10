@@ -1,5 +1,5 @@
 import { KuroClient } from "./client";
-import { KURO_GAMES, type KuroGameSlug } from "./constants";
+import { KURO_API_BASE, KURO_GAMES, type KuroGameSlug } from "./constants";
 import type { KuroRole, KuroSignRecordItem } from "./types";
 import type { CheckInResult } from "@/types/games";
 
@@ -76,4 +76,44 @@ export async function performKuroCheckin(
     status: "failed",
     message: res.msg || `Sign-in failed with code ${res.code}`,
   };
+}
+
+/**
+ * Forum-side daily sign-in (库街区 community), independent of any specific
+ * game's daily reward. Endpoint expects `gameId=2` for the BBS itself.
+ */
+export async function performKuroBbsCheckin(
+  token: string
+): Promise<CheckInResult> {
+  const client = new KuroClient(token);
+  try {
+    const res = await client.post<unknown>(`${KURO_API_BASE}/user/signIn`, {
+      gameId: 2,
+    });
+    if (res.code === 200) {
+      return {
+        success: true,
+        status: "success",
+        message: "库街区论坛签到成功",
+      };
+    }
+    if (res.msg && /已签|重复签到|已经签|今天已经/i.test(res.msg)) {
+      return {
+        success: true,
+        status: "already_claimed",
+        message: `库街区今日已签到`,
+      };
+    }
+    return {
+      success: false,
+      status: "failed",
+      message: res.msg || `BBS sign-in failed with code ${res.code}`,
+    };
+  } catch (e) {
+    return {
+      success: false,
+      status: "failed",
+      message: e instanceof Error ? e.message : "Unknown error",
+    };
+  }
 }

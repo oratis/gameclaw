@@ -10,6 +10,7 @@
 import {
   getSklandCharacters,
   performSklandAttendance,
+  performSklandBoardCheckin,
 } from "@/lib/skland/checkin";
 import { SKLAND_APP_NAMES } from "@/lib/skland/constants";
 import type {
@@ -31,7 +32,11 @@ const SKLAND_CREDENTIAL_FIELDS: CredentialField[] = [
   },
 ];
 
-const SKLAND_CAPABILITIES: Capability[] = ["checkin", "list_accounts"];
+const SKLAND_CAPABILITIES: Capability[] = [
+  "checkin",
+  "list_accounts",
+  "bbs_daily_task",
+];
 
 interface SklandGameConfig {
   slug: string;
@@ -103,6 +108,15 @@ function createSklandAdapter(cfg: SklandGameConfig): GameAdapter {
             status: "success",
             message: `${accounts.length} ${cfg.displayName} character(s) found`,
             data: accounts,
+          };
+        }
+
+        case "bbs_daily_task": {
+          const result = await performSklandBoardCheckin(token);
+          return {
+            status:
+              result.status === "already_claimed" ? "already_done" : result.status,
+            message: result.message,
           };
         }
 

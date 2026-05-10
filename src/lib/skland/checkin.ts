@@ -1,5 +1,5 @@
 import { SklandClient } from "./client";
-import { SKLAND_APP_NAMES } from "./constants";
+import { SKLAND_APP_NAMES, SKLAND_BOARDS } from "./constants";
 import type { SklandCharacter } from "./types";
 import type { CheckInResult } from "@/types/games";
 
@@ -96,5 +96,56 @@ export async function performSklandAttendance(
     success: false,
     status: "failed",
     message: errors.join("; ") || `Sign-in failed for all ${characters.length} character(s)`,
+  };
+}
+
+/**
+ * Run forum-board check-in across all 4 Skland boards. Independent of game
+ * attendance — these are separate "check tickets" with their own rewards.
+ */
+export async function performSklandBoardCheckin(
+  hgToken: string
+): Promise<CheckInResult> {
+  const client = await SklandClient.fromHypergryphToken(hgToken);
+  let signed = 0;
+  let already = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (const board of SKLAND_BOARDS) {
+    try {
+      const res = await client.boardCheckin(board.id);
+      if (res.code === 0) {
+        signed++;
+      } else if (res.message && /已经签|已签|签过|attended/i.test(res.message)) {
+        already++;
+      } else {
+        failed++;
+        errors.push(`${board.name}: ${res.message}`);
+      }
+    } catch (e) {
+      failed++;
+      errors.push(`${board.name}: ${e instanceof Error ? e.message : "unknown"}`);
+    }
+  }
+
+  if (signed > 0) {
+    return {
+      success: true,
+      status: "success",
+      message: `Signed ${signed} board(s)${already ? `, ${already} already done` : ""}${failed ? `, ${failed} failed` : ""}`,
+    };
+  }
+  if (already === SKLAND_BOARDS.length) {
+    return {
+      success: true,
+      status: "already_claimed",
+      message: `All ${SKLAND_BOARDS.length} Skland boards already checked in today`,
+    };
+  }
+  return {
+    success: false,
+    status: "failed",
+    message: errors.join("; ") || "All board check-ins failed",
   };
 }

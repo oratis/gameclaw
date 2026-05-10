@@ -1,34 +1,106 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { GAMES, GAME_SLUGS } from "@/lib/hoyolab/constants";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
+
+interface CredentialField {
+  key: string;
+  label: string;
+  required: boolean;
+  sensitive: boolean;
+}
+
+interface AdapterMeta {
+  slug: string;
+  vendor: string;
+  displayName: string;
+  authMethod: "cookie" | "oauth" | "token";
+  capabilities: string[];
+  credentialFields: CredentialField[];
+}
+
+const VENDOR_GUIDE: Record<string, { title: string; steps: string }> = {
+  hoyoverse: {
+    title: "How to get HoYoLAB / 米游社 cookies",
+    steps:
+      "1. Visit hoyolab.com (国际服) or miyoushe.com (国服) and log in\n" +
+      "2. Press F12 → Application → Cookies\n" +
+      "3. Copy each required cookie value listed above",
+  },
+  kuro: {
+    title: "How to get your Kurobbs token (库街区)",
+    steps:
+      "1. Open the 库街区 app on Android\n" +
+      "2. Use a packet-capture tool (e.g. HttpCanary) on api.kurobbs.com\n" +
+      "3. Find the `token` request header — that JWT is your token\n" +
+      "4. Or: visit https://www.kurobbs.com on web, log in, and copy `user_token` cookie",
+  },
+};
 
 export default function LinkAccountPage() {
   const t = useTranslations("accounts");
   const router = useRouter();
+  const [adapters, setAdapters] = useState<AdapterMeta[]>([]);
+  const [loadingAdapters, setLoadingAdapters] = useState(true);
   const [gameId, setGameId] = useState("");
-  const [ltokenV2, setLtokenV2] = useState("");
-  const [ltuidV2, setLtuidV2] = useState("");
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/adapters")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data?.adapters) {
+          setAdapters(data.adapters);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAdapters(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectedAdapter = useMemo(
+    () => adapters.find((a) => a.slug === gameId) ?? null,
+    [adapters, gameId]
+  );
+
+  const guide = selectedAdapter ? VENDOR_GUIDE[selectedAdapter.vendor] : null;
+
+  function handleGameChange(slug: string) {
+    setGameId(slug);
+    setFieldValues({});
+    setError("");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!selectedAdapter) return;
     setError("");
-    setLoading(true);
+    setSubmitting(true);
+
+    // Drop empty optional fields so we don't pollute the encrypted blob.
+    const credentials: Record<string, string> = {};
+    for (const f of selectedAdapter.credentialFields) {
+      const v = (fieldValues[f.key] ?? "").trim();
+      if (v) credentials[f.key] = v;
+    }
 
     try {
       const res = await fetch("/api/user/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameId, ltokenV2, ltuidV2 }),
+        body: JSON.stringify({ gameId, credentials }),
       });
 
       const data = await res.json();
@@ -42,7 +114,7 @@ export default function LinkAccountPage() {
     } catch {
       setError(t("linkError"));
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   }
 
@@ -72,50 +144,57 @@ export default function LinkAccountPage() {
               </label>
               <select
                 value={gameId}
-                onChange={(e) => setGameId(e.target.value)}
+                onChange={(e) => handleGameChange(e.target.value)}
                 required
+                disabled={loadingAdapters}
                 className="flex h-10 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               >
                 <option value="" className="bg-gray-900">
-                  --
+                  {loadingAdapters ? "..." : "--"}
                 </option>
-                {GAME_SLUGS.map((slug) => (
-                  <option key={slug} value={slug} className="bg-gray-900">
-                    {GAMES[slug].name}
+                {adapters.map((a) => (
+                  <option key={a.slug} value={a.slug} className="bg-gray-900">
+                    {a.displayName} ({a.vendor})
                   </option>
                 ))}
               </select>
             </div>
 
-            <Input
-              id="ltokenV2"
-              label={t("ltokenV2")}
-              placeholder="v2_CAISDG..."
-              value={ltokenV2}
-              onChange={(e) => setLtokenV2(e.target.value)}
-              required
-            />
+            {selectedAdapter && (
+              <>
+                {selectedAdapter.credentialFields.map((f) => (
+                  <Input
+                    key={f.key}
+                    id={f.key}
+                    label={f.label + (f.required ? "" : " (optional)")}
+                    type={f.sensitive ? "password" : "text"}
+                    value={fieldValues[f.key] ?? ""}
+                    onChange={(e) =>
+                      setFieldValues((prev) => ({ ...prev, [f.key]: e.target.value }))
+                    }
+                    required={f.required}
+                  />
+                ))}
 
-            <Input
-              id="ltuidV2"
-              label={t("ltuidV2")}
-              placeholder="123456789"
-              value={ltuidV2}
-              onChange={(e) => setLtuidV2(e.target.value)}
-              required
-            />
+                {guide && (
+                  <Card className="bg-blue-500/5 border-blue-500/20">
+                    <h3 className="mb-2 text-sm font-semibold text-blue-400">
+                      {guide.title}
+                    </h3>
+                    <p className="whitespace-pre-line text-sm text-gray-400">
+                      {guide.steps}
+                    </p>
+                  </Card>
+                )}
+              </>
+            )}
 
-            <Card className="bg-blue-500/5 border-blue-500/20">
-              <h3 className="mb-2 text-sm font-semibold text-blue-400">
-                {t("cookieGuide")}
-              </h3>
-              <p className="whitespace-pre-line text-sm text-gray-400">
-                {t("cookieGuideSteps")}
-              </p>
-            </Card>
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "..." : t("linkNew")}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={submitting || !selectedAdapter}
+            >
+              {submitting ? "..." : t("linkNew")}
             </Button>
           </form>
         )}

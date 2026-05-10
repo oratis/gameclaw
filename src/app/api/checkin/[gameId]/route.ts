@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/encryption";
-import { performCheckin } from "@/lib/hoyolab/checkin";
-import { GAMES } from "@/lib/hoyolab/constants";
-import type { GameSlug } from "@/types/games";
+import { buildCreds } from "@/lib/credentials";
+import { getAdapter, hasAdapter } from "@/adapters";
 
 export async function POST(
   _req: NextRequest,
@@ -17,7 +15,7 @@ export async function POST(
 
   const { gameId } = await params;
 
-  if (!(gameId in GAMES)) {
+  if (!hasAdapter(gameId)) {
     return NextResponse.json({ error: "Invalid game" }, { status: 400 });
   }
 
@@ -33,18 +31,21 @@ export async function POST(
   }
 
   try {
-    const ltokenV2 = decrypt(account.ltokenV2);
-    const ltuidV2 = decrypt(account.ltuidV2);
-    const result = await performCheckin(gameId as GameSlug, ltokenV2, ltuidV2);
+    const adapter = getAdapter(gameId)!;
+    const creds = buildCreds(account);
+    const result = await adapter.execute({ capability: "checkin" }, creds);
+
+    const success = result.status === "success" || result.status === "already_done";
+    const dbStatus = result.status === "already_done" ? "already_claimed" : result.status;
 
     await prisma.checkInLog.create({
       data: {
         gameAccountId: account.id,
         userId: session.user.id,
         gameId,
-        status: result.status,
+        status: dbStatus,
         reward: result.reward || null,
-        errorMessage: result.success ? null : result.message,
+        errorMessage: success ? null : result.message,
         triggeredBy: "manual",
       },
     });
@@ -56,7 +57,12 @@ export async function POST(
       });
     }
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      success,
+      status: dbStatus,
+      message: result.message,
+      reward: result.reward,
+    });
   } catch (error) {
     return NextResponse.json(
       {

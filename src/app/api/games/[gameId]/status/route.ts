@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/encryption";
-import { getCheckinInfo } from "@/lib/hoyolab/checkin";
-import { GAMES } from "@/lib/hoyolab/constants";
-import type { GameSlug } from "@/types/games";
+import { buildCreds } from "@/lib/credentials";
+import { getAdapter, hasAdapter } from "@/adapters";
 
 export async function GET(
   _req: NextRequest,
@@ -17,7 +15,7 @@ export async function GET(
 
   const { gameId } = await params;
 
-  if (!(gameId in GAMES)) {
+  if (!hasAdapter(gameId)) {
     return NextResponse.json({ error: "Invalid game" }, { status: 400 });
   }
 
@@ -33,15 +31,17 @@ export async function GET(
   }
 
   try {
-    const ltokenV2 = decrypt(account.ltokenV2);
-    const ltuidV2 = decrypt(account.ltuidV2);
-    const info = await getCheckinInfo(gameId as GameSlug, ltokenV2, ltuidV2);
+    const adapter = getAdapter(gameId)!;
+    const creds = buildCreds(account);
+    const result = await adapter.execute({ capability: "checkin_info" }, creds);
 
     return NextResponse.json({
       gameId,
       uid: account.uid,
       nickname: account.nickname,
-      checkinInfo: info,
+      checkinInfo: result.data ?? null,
+      status: result.status,
+      message: result.message,
     });
   } catch (error) {
     return NextResponse.json(

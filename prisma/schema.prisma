@@ -19,9 +19,12 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts     Account[]
-  gameAccounts GameAccount[]
-  checkinLogs  CheckInLog[]
+  accounts      Account[]
+  gameAccounts  GameAccount[]
+  checkinLogs   CheckInLog[]
+  tasks         Task[]
+  taskTemplates TaskTemplate[]
+  subscription  Subscription?
 }
 
 model Account {
@@ -57,9 +60,14 @@ model GameAccount {
   uid         String
   nickname    String?
   server      String?
-  ltokenV2    String
-  ltuidV2     String
+  // Legacy HoYoLab-only credentials. New accounts write to `credentials`
+  // instead. Kept nullable for backward compatibility with existing rows.
+  ltokenV2    String?
+  ltuidV2     String?
   cookieToken String?
+  // Encrypted JSON blob of adapter-specific credentials. Shape is determined
+  // by the adapter's credentialFields. Reading: see src/lib/credentials.ts.
+  credentials String?
   autoCheckin Boolean  @default(true)
   isActive    Boolean  @default(true)
   lastCheckin DateTime?
@@ -68,6 +76,7 @@ model GameAccount {
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   checkinLogs CheckInLog[]
+  tasks       Task[]
 
   @@unique([userId, gameId, uid])
   @@index([userId])
@@ -101,4 +110,118 @@ model SupportedGame {
   iconUrl     String?
   description String?
   isActive    Boolean @default(true)
+}
+
+// Generic representation of "one thing the AI did (or will do) on the user's behalf".
+// Replaces CheckInLog over time — `checkin` is just one of many capabilities.
+// CheckInLog is still written for backwards compat in M2; will be removed in M3.
+model Task {
+  id              String    @id @default(cuid())
+  userId          String
+  gameAccountId   String?
+  /// Groups all tasks fired from a single template execution.
+  templateRunId   String?
+  templateStepIdx Int?
+  /// e.g. "checkin" | "mail_claim" | "stamina_spend_dispatch"
+  capability      String
+  /// e.g. "genshin" | "wuwa" | "arknights"
+  gameSlug        String
+  /// pending | scheduled | running | success | already_done | failed | skipped
+  status          String
+  /// "L1" | "L2" | "L3" — backend tier that handled this task
+  backendTier     String?
+  /// FK to Worker (nullable, only L3 tasks)
+  workerId        String?
+  scheduledFor    DateTime?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  /// Self-FK for retry chains
+  retryOf         String?
+  /// "cron" | "manual" | "skill" | "agent" | "template"
+  triggeredBy     String
+  /// capability-specific input (e.g. {roleId})
+  payload         Json?
+  /// capability-specific output (e.g. {reward, streak})
+  result          Json?
+  /// {tokensIn, tokensOut, ms, usd, gpuSeconds?}
+  cost            Json?
+  errorCode       String?
+  errorMessage    String?
+  /// GCS / S3 URLs for L3 verification screenshots
+  screenshotUrls  String[]
+  createdAt       DateTime  @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameAccount GameAccount? @relation(fields: [gameAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([status, scheduledFor])
+  @@index([templateRunId])
+  @@index([gameAccountId])
+}
+
+/// User-defined "daily routine" — an ordered list of (capability, game, params)
+/// optionally fired on a cron schedule.
+model TaskTemplate {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  /// Optional cron expression (e.g. "0 4 * * *")
+  schedule    String?
+  /// Ordered array of TaskStep records: [{gameSlug, capability, params?, when?}]
+  steps       Json
+  /// {staminaThreshold:8, weeklyOnSundayBefore:"21:00", ...}
+  preferences Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Billing / quota state per user.
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  /// "free" | "pro" | "proplus" | "enterprise"
+  tier                 String    @default("free")
+  /// -1 means unlimited
+  monthlyTaskQuota     Int       @default(90)
+  /// LLM spend ceiling, USD cents per month
+  monthlyAiBudgetCents Int       @default(0)
+  /// Pro+ flag — gates L3 capabilities
+  l3Enabled            Boolean   @default(false)
+  startedAt            DateTime  @default(now())
+  renewsAt             DateTime?
+  /// "active" | "past_due" | "canceled"
+  status               String    @default("active")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Pre-launch demand signal collection — "what game / what task / what price".
+/// Public POST; no auth needed.
+model DemandSignal {
+  id           String   @id @default(cuid())
+  /// Optional: if user is signed in
+  userId       String?
+  /// Free-text email (for follow-up if user didn't sign in)
+  email        String?
+  /// Free-text game name as user typed it (we map post-hoc)
+  gameTyped    String
+  /// Mapped to canonical slug if recognized
+  gameSlug     String?
+  /// Free-text task description
+  taskDesc     String
+  /// Reported willingness to pay, USD cents per task or per month (free-text really)
+  priceText    String?
+  /// "task" | "monthly" — interpretation of priceText
+  priceType    String?
+  source       String?
+  createdAt    DateTime @default(now())
+
+  @@index([gameSlug])
+  @@index([createdAt])
 }

@@ -24,6 +24,14 @@ export function encrypt(plaintext: string): string {
   return iv.toString("hex") + ":" + tag.toString("hex") + ":" + encrypted;
 }
 
+export function encryptJSON(value: unknown): string {
+  return encrypt(JSON.stringify(value));
+}
+
+export function decryptJSON<T = unknown>(ciphertext: string): T {
+  return JSON.parse(decrypt(ciphertext)) as T;
+}
+
 export function decrypt(ciphertext: string): string {
   const key = getKey();
   const parts = ciphertext.split(":");

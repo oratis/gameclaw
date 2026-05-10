@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/encryption";
-import { performCheckin } from "@/lib/hoyolab/checkin";
 import { logger } from "@/lib/logger";
-import type { GameSlug } from "@/types/games";
+import { runTask } from "@/lib/tasks/runner";
 
 /**
  * Scheduled auto check-in endpoint.
  * Called by Cloud Scheduler daily.
  *
  * Auth: Bearer token via CRON_SECRET env var.
- * Iterates all active game accounts with autoCheckin=true and performs check-ins.
+ * Iterates all active game accounts with autoCheckin=true and runs the
+ * `checkin` capability through the unified task runner. Each invocation
+ * writes a Task row (and dual-writes CheckInLog for compat).
  */
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -35,41 +35,20 @@ export async function POST(req: NextRequest) {
   let alreadyClaimed = 0;
   let failed = 0;
 
-  // Process accounts with a small delay between each to avoid rate limiting
   for (let i = 0; i < accounts.length; i++) {
     const account = accounts[i];
     try {
-      const ltokenV2 = decrypt(account.ltokenV2);
-      const ltuidV2 = decrypt(account.ltuidV2);
-      const result = await performCheckin(
-        account.gameId as GameSlug,
-        ltokenV2,
-        ltuidV2
-      );
-
-      await prisma.checkInLog.create({
-        data: {
-          gameAccountId: account.id,
-          userId: account.userId,
-          gameId: account.gameId,
-          status: result.status,
-          reward: result.reward || null,
-          errorMessage: result.success ? null : result.message,
-          triggeredBy: "cron",
-        },
+      const { result } = await runTask({
+        userId: account.userId,
+        gameSlug: account.gameId,
+        gameAccountId: account.id,
+        capability: "checkin",
+        triggeredBy: "cron",
       });
 
-      if (result.status === "success") {
-        success++;
-        await prisma.gameAccount.update({
-          where: { id: account.id },
-          data: { lastCheckin: new Date() },
-        });
-      } else if (result.status === "already_claimed") {
-        alreadyClaimed++;
-      } else {
-        failed++;
-      }
+      if (result.status === "success") success++;
+      else if (result.status === "already_done") alreadyClaimed++;
+      else failed++;
     } catch (error) {
       failed++;
       logger.error("cron checkin error", error, {
@@ -77,19 +56,9 @@ export async function POST(req: NextRequest) {
         gameAccountId: account.id,
         gameId: account.gameId,
       });
-      await prisma.checkInLog.create({
-        data: {
-          gameAccountId: account.id,
-          userId: account.userId,
-          gameId: account.gameId,
-          status: "failed",
-          errorMessage: error instanceof Error ? error.message : "Unknown error",
-          triggeredBy: "cron",
-        },
-      });
     }
 
-    // 1.5s delay between check-ins to avoid HoYoLAB rate limiting
+    // Spacing between accounts to avoid upstream rate limiting.
     if (i < accounts.length - 1) {
       await new Promise((r) => setTimeout(r, 1500));
     }

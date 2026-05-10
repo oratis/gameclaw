@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { encrypt } from "@/lib/encryption";
-import { validateCookies } from "@/lib/hoyolab/account";
-import { getGameAccounts } from "@/lib/hoyolab/account";
-import { GAMES } from "@/lib/hoyolab/constants";
-import type { GameSlug } from "@/types/games";
+import { packCreds } from "@/lib/credentials";
+import { getAdapter, hasAdapter } from "@/adapters";
+import type { Credentials } from "@/adapters/types";
 
 export async function GET() {
   const session = await auth();
@@ -37,34 +35,73 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { gameId, ltokenV2, ltuidV2 } = await req.json();
+  const body = await req.json();
+  const { gameId } = body;
 
-  if (!gameId || !ltokenV2 || !ltuidV2) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  if (!gameId) {
+    return NextResponse.json({ error: "Missing gameId" }, { status: 400 });
   }
-
-  if (!(gameId in GAMES)) {
+  if (!hasAdapter(gameId)) {
     return NextResponse.json({ error: "Invalid game" }, { status: 400 });
   }
 
-  const valid = await validateCookies(ltokenV2, ltuidV2);
-  if (!valid) {
-    return NextResponse.json({ error: "Invalid cookies" }, { status: 400 });
+  const adapter = getAdapter(gameId)!;
+
+  // Two intake shapes:
+  //   New:   { gameId, credentials: {...} }
+  //   Legacy: { gameId, ltokenV2, ltuidV2 }   (HoYoLab only)
+  let credentials: Credentials;
+  if (body.credentials && typeof body.credentials === "object") {
+    credentials = body.credentials as Credentials;
+  } else if (body.ltokenV2 && body.ltuidV2) {
+    credentials = { ltokenV2: body.ltokenV2, ltuidV2: body.ltuidV2 };
+  } else {
+    return NextResponse.json(
+      { error: "Missing credentials" },
+      { status: 400 }
+    );
   }
 
-  const roles = await getGameAccounts(ltokenV2, ltuidV2);
-  const gameConfig = GAMES[gameId as GameSlug];
-  const role = roles.find((r) => r.game_biz.includes(gameConfig.gameId));
+  // Validate that every required adapter field is present (and non-empty).
+  for (const f of adapter.credentialFields) {
+    if (f.required && !credentials[f.key]) {
+      return NextResponse.json(
+        { error: `Missing required field: ${f.label} (${f.key})` },
+        { status: 400 }
+      );
+    }
+  }
+
+  // Verify with the adapter — confirms credentials work and pulls account info.
+  let roles: { uid: string; nickname: string; server?: string; serverName?: string }[];
+  try {
+    roles = await adapter.verify(credentials);
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Verification failed" },
+      { status: 400 }
+    );
+  }
+
+  if (roles.length === 0) {
+    return NextResponse.json(
+      { error: `Credentials look valid but no ${adapter.displayName} role was found` },
+      { status: 400 }
+    );
+  }
+
+  // Optional role override; otherwise pick the first one.
+  const desiredUid = typeof body.uid === "string" ? body.uid : undefined;
+  const role = (desiredUid && roles.find((r) => r.uid === desiredUid)) || roles[0];
 
   const account = await prisma.gameAccount.create({
     data: {
       userId: session.user.id,
       gameId,
-      uid: role?.game_uid || ltuidV2,
-      nickname: role?.nickname || null,
-      server: role?.region || null,
-      ltokenV2: encrypt(ltokenV2),
-      ltuidV2: encrypt(ltuidV2),
+      uid: role.uid,
+      nickname: role.nickname,
+      server: role.serverName ?? role.server ?? null,
+      credentials: packCreds(credentials),
     },
     select: {
       id: true,

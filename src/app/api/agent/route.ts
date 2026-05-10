@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/encryption";
-import { performCheckin, getCheckinInfo } from "@/lib/hoyolab/checkin";
-import { GAMES, GAME_SLUGS } from "@/lib/hoyolab/constants";
-import type { GameSlug } from "@/types/games";
+import { buildCreds } from "@/lib/credentials";
+import { getAdapter, hasAdapter, listAdapters } from "@/adapters";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -18,15 +16,17 @@ export async function GET(req: NextRequest) {
 
   if (action === "games") {
     return NextResponse.json({
-      games: GAME_SLUGS.map((slug) => ({
-        slug,
-        name: GAMES[slug].name,
+      games: listAdapters().map((a) => ({
+        slug: a.slug,
+        name: a.displayName,
+        vendor: a.vendor,
+        capabilities: a.capabilities,
       })),
     });
   }
 
   if (action === "status" && gameId) {
-    if (!(gameId in GAMES)) {
+    if (!hasAdapter(gameId)) {
       return NextResponse.json({ error: "Invalid game" }, { status: 400 });
     }
 
@@ -39,15 +39,20 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-      const ltokenV2 = decrypt(account.ltokenV2);
-      const ltuidV2 = decrypt(account.ltuidV2);
-      const info = await getCheckinInfo(gameId as GameSlug, ltokenV2, ltuidV2);
+      const adapter = getAdapter(gameId)!;
+      const creds = buildCreds(account);
+      const result = await adapter.execute(
+        { capability: "checkin_info" },
+        creds
+      );
 
       return NextResponse.json({
         gameId,
         uid: account.uid,
         nickname: account.nickname,
-        checkinInfo: info,
+        checkinInfo: result.data ?? null,
+        status: result.status,
+        message: result.message,
       });
     } catch (error) {
       return NextResponse.json(
@@ -73,7 +78,7 @@ export async function POST(req: NextRequest) {
   const { action, gameId } = await req.json();
 
   if (action === "checkin") {
-    if (gameId && !(gameId in GAMES)) {
+    if (gameId && !hasAdapter(gameId)) {
       return NextResponse.json({ error: "Invalid game" }, { status: 400 });
     }
 
@@ -87,22 +92,34 @@ export async function POST(req: NextRequest) {
 
     const settled = await Promise.allSettled(
       accounts.map(async (account) => {
-        const ltokenV2 = decrypt(account.ltokenV2);
-        const ltuidV2 = decrypt(account.ltuidV2);
-        const result = await performCheckin(
-          account.gameId as GameSlug,
-          ltokenV2,
-          ltuidV2
+        const adapter = getAdapter(account.gameId);
+        if (!adapter) {
+          return {
+            gameId: account.gameId,
+            uid: account.uid,
+            success: false,
+            status: "failed" as const,
+            message: `No adapter registered for game: ${account.gameId}`,
+          };
+        }
+
+        const creds = buildCreds(account);
+        const result = await adapter.execute(
+          { capability: "checkin" },
+          creds
         );
+
+        const success = result.status === "success" || result.status === "already_done";
+        const dbStatus = result.status === "already_done" ? "already_claimed" : result.status;
 
         await prisma.checkInLog.create({
           data: {
             gameAccountId: account.id,
             userId: session.user.id,
             gameId: account.gameId,
-            status: result.status,
+            status: dbStatus,
             reward: result.reward || null,
-            errorMessage: result.success ? null : result.message,
+            errorMessage: success ? null : result.message,
             triggeredBy: "skill",
           },
         });
@@ -114,7 +131,14 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        return { gameId: account.gameId, uid: account.uid, ...result };
+        return {
+          gameId: account.gameId,
+          uid: account.uid,
+          success,
+          status: dbStatus,
+          message: result.message,
+          reward: result.reward,
+        };
       })
     );
 

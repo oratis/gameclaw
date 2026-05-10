@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { encrypt, decrypt } from "./encryption";
+import { encrypt, decrypt, encryptJSON, decryptJSON } from "./encryption";
 
 describe("encryption", () => {
   beforeAll(() => {
@@ -45,5 +45,22 @@ describe("encryption", () => {
     } finally {
       process.env.ENCRYPTION_KEY = originalKey;
     }
+  });
+
+  it("encryptJSON / decryptJSON round-trip an arbitrary credential map", () => {
+    const creds = {
+      ltokenV2: "v2_AbC123-_xYz.tokenStringHere",
+      ltuidV2: "12345678",
+      cookieTokenV2: "ct.v2.zzz",
+    };
+    const ciphertext = encryptJSON(creds);
+    expect(decryptJSON<typeof creds>(ciphertext)).toEqual(creds);
+  });
+
+  it("decryptJSON throws on tampered ciphertext", () => {
+    const ciphertext = encryptJSON({ token: "abc" });
+    const [iv, tag, data] = ciphertext.split(":");
+    const tampered = `${iv}:${tag}:${data.slice(0, -2)}aa`;
+    expect(() => decryptJSON(tampered)).toThrow();
   });
 });

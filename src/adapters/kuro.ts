@@ -125,4 +125,5 @@ function createKuroAdapter(slug: KuroGameSlug): GameAdapter {
 
 export const KURO_ADAPTERS: Record<KuroGameSlug, GameAdapter> = {
   wuwa: createKuroAdapter("wuwa"),
+  punishing: createKuroAdapter("punishing"),
 };

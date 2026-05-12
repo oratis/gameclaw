@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { verifyTurnstileToken, isTurnstileEnabled } from "@/lib/captcha/turnstile";
 
 // Simple in-memory rate limiter per IP
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -31,13 +32,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, email, password } = await req.json();
+    const { name, email, password, turnstileToken } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
         { status: 400 }
       );
+    }
+
+    // CAPTCHA: fail-open when Turnstile not configured (dev / pre-launch),
+    // strict when TURNSTILE_SECRET_KEY is set.
+    if (isTurnstileEnabled()) {
+      const cap = await verifyTurnstileToken(turnstileToken, ip);
+      if (!cap.ok) {
+        return NextResponse.json(
+          { error: `CAPTCHA verification failed: ${cap.reason}` },
+          { status: 400 }
+        );
+      }
     }
 
     if (typeof email !== "string" || !EMAIL_REGEX.test(email)) {

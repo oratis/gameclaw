@@ -1,6 +1,6 @@
 export const KURO_API_BASE = "https://api.kurobbs.com";
 
-export type KuroGameSlug = "wuwa";
+export type KuroGameSlug = "wuwa" | "punishing";
 
 export interface KuroGameConfig {
   name: string;
@@ -10,11 +10,15 @@ export interface KuroGameConfig {
 
 export const KURO_GAMES: Record<KuroGameSlug, KuroGameConfig> = {
   wuwa: {
-    name: "Wuthering Waves",
+    name: "Wuthering Waves (鸣潮)",
     slug: "wuwa",
     gameId: 3,
   },
-  // Future: punishing (战双) — gameId 2
+  punishing: {
+    name: "Punishing: Gray Raven (战双帕弥什)",
+    slug: "punishing",
+    gameId: 2,
+  },
 };
 
 export const KURO_GAME_SLUGS: KuroGameSlug[] = Object.keys(KURO_GAMES) as KuroGameSlug[];

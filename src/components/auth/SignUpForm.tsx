@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { OAuthButtons } from "./OAuthButtons";
+import { TurnstileWidget } from "./TurnstileWidget";
 import Link from "next/link";
 
 export function SignUpForm() {
@@ -18,6 +19,9 @@ export function SignUpForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+
+  const captchaRequired = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,6 +31,10 @@ export function SignUpForm() {
       setError(t("passwordMismatch"));
       return;
     }
+    if (captchaRequired && !turnstileToken) {
+      setError("Please complete the CAPTCHA");
+      return;
+    }
 
     setLoading(true);
 
@@ -34,7 +42,7 @@ export function SignUpForm() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, turnstileToken }),
       });
 
       const data = await res.json();
@@ -104,7 +112,16 @@ export function SignUpForm() {
           required
         />
 
-        <Button type="submit" className="w-full" disabled={loading}>
+        <TurnstileWidget
+          onToken={(tok) => setTurnstileToken(tok)}
+          onExpire={() => setTurnstileToken(null)}
+        />
+
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={loading || (captchaRequired && !turnstileToken)}
+        >
           {loading ? tCommon("loading") : tCommon("signUp")}
         </Button>
       </form>

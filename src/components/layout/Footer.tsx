@@ -21,7 +21,7 @@ export function Footer() {
               {t("docs")}
             </Link>
             <a
-              href="https://github.com/gameclaw/gameclaw"
+              href="https://github.com/oratis/gameclaw"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-gray-400 transition-colors hover:text-white"

@@ -8,7 +8,7 @@
 
 import {
   getKuroRoles,
-  performKuroBbsCheckin,
+  performKuroBbsMultiStep,
   performKuroCheckin,
 } from "@/lib/kuro/checkin";
 import { KURO_GAMES, type KuroGameSlug } from "@/lib/kuro/constants";
@@ -105,7 +105,7 @@ function createKuroAdapter(slug: KuroGameSlug): GameAdapter {
         }
 
         case "bbs_daily_task": {
-          const result = await performKuroBbsCheckin(token);
+          const result = await performKuroBbsMultiStep(token);
           return {
             status:
               result.status === "already_claimed" ? "already_done" : result.status,

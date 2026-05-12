@@ -71,6 +71,10 @@ model GameAccount {
   credentials String?
   autoCheckin Boolean  @default(true)
   isActive    Boolean  @default(true)
+  /// Set by the health cron when recent tasks show credential-expiry / auth
+  /// failures. Dashboard renders a banner; runTask still allows attempts so
+  /// the user can verify a re-link succeeded.
+  needsRelink Boolean  @default(false)
   lastCheckin DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

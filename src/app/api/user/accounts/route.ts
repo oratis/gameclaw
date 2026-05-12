@@ -21,6 +21,7 @@ export async function GET() {
       server: true,
       autoCheckin: true,
       isActive: true,
+      needsRelink: true,
       lastCheckin: true,
     },
     orderBy: { createdAt: "asc" },

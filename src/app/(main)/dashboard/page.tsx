@@ -25,6 +25,7 @@ interface LinkedAccount {
   nickname: string | null;
   autoCheckin: boolean;
   isActive: boolean;
+  needsRelink: boolean;
   lastCheckin: string | null;
 }
 
@@ -240,7 +241,7 @@ export default function DashboardPage() {
               const accent = VENDOR_ACCENT[a?.vendor ?? ""] ?? "#9CA3AF";
               const checkedToday = isCheckedInToday(account.lastCheckin);
               return (
-                <Card key={account.id} className="space-y-4">
+                <Card key={account.id} className={`space-y-4 ${account.needsRelink ? "border-yellow-500/40 bg-yellow-500/[0.04]" : ""}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div
@@ -266,6 +267,14 @@ export default function DashboardPage() {
                       {account.isActive ? t("active") : t("inactive")}
                     </Badge>
                   </div>
+                  {account.needsRelink && (
+                    <Link
+                      href="/accounts/link"
+                      className="-mx-4 -my-2 block rounded-lg bg-yellow-500/10 px-4 py-2 text-xs text-yellow-300 hover:bg-yellow-500/20"
+                    >
+                      ⚠️ Credentials appear expired — click to re-link
+                    </Link>
+                  )}
                   <div className="flex items-center justify-between border-t border-white/5 pt-4">
                     <div className="flex items-center gap-2 text-sm">
                       {checkedToday ? (

@@ -1,162 +1,86 @@
-# GameClaw
+# GameClaw — AI 游戏代练 · Universal AI Game Boost
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Automate your daily gaming rewards. GameClaw is an open-source platform and OpenClaw AI skill for automating HoYoLAB daily check-ins across all HoYoverse games.
+> AI plays the boring parts of every game for you. Daily check-ins today, dailies / mail / dungeons next. Cross-vendor across HoYoverse, 米游社, Kurogames (鸣潮), and Hypergryph (明日方舟).
 
-## Features
+## What it does
 
-- **Auto Daily Check-in** — Automatically claim daily rewards for all linked HoYoverse games
-- **Multi-Game Support** — Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Honkai Impact 3rd, Tears of Themis
-- **OpenClaw AI Skill** — Use as an AI skill in Claude to manage check-ins via natural language
-- **Secure** — Game credentials encrypted at rest with AES-256-GCM
-- **Multi-Language** — English, Chinese, Japanese, Korean
-- **Responsive** — Works on desktop and mobile
-- **Open Source** — MIT licensed, fully transparent
+- **10+ games across 4 vendors**, one unified adapter system. Add a new game = write one `src/adapters/<vendor>.ts` file.
+- **AI Planner** — describe what you want in plain language (zh/en/ja/ko); Claude Opus 4.7 emits an executable plan, you preview, you run.
+- **Daily routines** — save any plan as a `TaskTemplate` and re-run on demand or via cron.
+- **Capability layers**:
+  - **T1 (live)**: check-in, BBS daily, redeem code, real-time game status (resin / power / battery)
+  - **T2 (in progress)**: mail claim, stamina dispatch
+  - **T3 (M3 platform-side ready, worker fleet manual)**: weekly dungeon, infrastructure shift, material farm — Pro+ only
+- **AI Weekly Reporter** — Haiku 4.5 summarizes your week of activity into a friendly digest
+- **PayPal subscription billing** — Free / Pro $5 / Pro+ $15 / Enterprise tiers, real per-user monthly quota enforcement
+- **L3 worker fleet** — Cloud Run Jobs dispatch + AI Verifier (Claude vision on screenshots) + per-vendor risk circuit breaker
 
-## Supported Games
+## Supported games
 
-| Game | Slug | Daily Rewards |
-|------|------|---------------|
-| Genshin Impact | `genshin` | Primogems, Mora, materials |
-| Honkai: Star Rail | `starrail` | Stellar Jade, credits |
-| Zenless Zone Zero | `zzz` | Polychrome, materials |
-| Honkai Impact 3rd | `honkai3rd` | Crystals, materials |
-| Tears of Themis | `tears` | S-Chips, materials |
+| Vendor | Slug | Game |
+|---|---|---|
+| HoYoLAB (intl) | `genshin` | Genshin Impact |
+| HoYoLAB (intl) | `starrail` | Honkai: Star Rail |
+| HoYoLAB (intl) | `zzz` | Zenless Zone Zero |
+| HoYoLAB (intl) | `honkai3rd` | Honkai Impact 3rd |
+| HoYoLAB (intl) | `tears` | Tears of Themis |
+| 米游社 (CN) | `genshin-cn` | 原神 |
+| 米游社 (CN) | `starrail-cn` | 崩坏:星穹铁道 |
+| 米游社 (CN) | `zzz-cn` | 绝区零 |
+| Kurogames | `wuwa` | Wuthering Waves (鸣潮) |
+| Hypergryph | `arknights` | Arknights (明日方舟) |
 
-## Quick Start
+## Capabilities matrix
 
-### Prerequisites
+| Capability | HoYoLab | Miyoushe | Kuro | Skland | Tier |
+|---|---|---|---|---|---|
+| `checkin` | ✅ | ✅ | ✅ | ✅ | T1 |
+| `checkin_info` | ✅ | ✅ | — | — | T1 |
+| `list_accounts` | ✅ | ✅ | ✅ | ✅ | T1 |
+| `bbs_daily_task` | ✅ | ✅ | ✅ | ✅ (4 boards) | T1 |
+| `redeem_code` | ✅ (Genshin/StarRail/ZZZ) | — | — | — | T1 |
+| `account_status` | ✅ (real-time notes) | — | — | — | T1 |
+| `mail_claim` | — | — | — | — | T2 (next) |
+| `stamina_spend` | — | — | — | — | T2 (next) |
+| `weekly_dungeon` / `infrastructure_shift` / `material_farm` / `auto_battle` | — | — | — | scaffolded | T3 (M3, Pro+ only) |
 
-- Node.js 20+
-- PostgreSQL 16+
-- npm
-
-### Local Development
+## Quick start (self-host)
 
 ```bash
-# Clone the repository
-git clone https://github.com/gameclaw/gameclaw.git
+git clone https://github.com/oratis/gameclaw.git
 cd gameclaw
-
-# Install dependencies
 npm install
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your values
-
-# Generate Prisma client and run migrations
+cp .env.example .env  # fill in DATABASE_URL, NEXTAUTH_SECRET, ENCRYPTION_KEY, ANTHROPIC_API_KEY
 npx prisma generate
 npx prisma db push
-
-# Start development server
 npm run dev
 ```
 
-Visit http://localhost:3000
+Visit http://localhost:3000.
 
-### Docker
+## Docs
 
-```bash
-docker-compose up -d
-```
+| File | What |
+|---|---|
+| [plan.md](plan.md) | Strategic roadmap M0 → M4 |
+| [plan-tasks.md](plan-tasks.md) | Deep dive on the generic task system + worker tiers |
+| [PAYPAL_SETUP.md](PAYPAL_SETUP.md) | How to bring real PayPal billing live |
+| [worker/WORKER_SETUP.md](worker/WORKER_SETUP.md) | How to deploy the L3 vision-worker fleet |
+| [M3_REPORT.md](M3_REPORT.md) | What landed during the M3 push |
+| [src/adapters/README.md](src/adapters/README.md) | How to add a new game adapter |
 
-## OpenClaw Skill
+## Tech
 
-### Installation
-
-```bash
-# Via ClawHub
-clawhub install gameclaw
-
-# Or manually
-cp -r gameclaw_skill ~/.claude/skills/gameclaw
-```
-
-### Usage
-
-```
-/gameclaw checkin all          # Check in to all games
-/gameclaw checkin genshin      # Check in to Genshin Impact
-/gameclaw status genshin       # View check-in status
-/gameclaw games                # List supported games
-```
-
-### Standalone Scripts
-
-```bash
-cd gameclaw_skill/scripts
-pip install -r requirements.txt
-
-# Check-in
-python hoyolab_checkin.py --ltoken "YOUR_TOKEN" --ltuid "YOUR_UID" --game genshin
-
-# Account info
-python account_status.py --ltoken "YOUR_TOKEN" --ltuid "YOUR_UID"
-```
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `NEXTAUTH_URL` | Application URL (http://localhost:3000) |
-| `NEXTAUTH_SECRET` | NextAuth secret key |
-| `AUTH_TRUST_HOST` | Set to `true` for production |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `APPLE_CLIENT_ID` | Apple Sign-In client ID |
-| `APPLE_CLIENT_SECRET` | Apple Sign-In client secret |
-| `ENCRYPTION_KEY` | 32-byte hex key for AES-256-GCM |
-
-## Deployment
-
-GameClaw is designed for Google Cloud Run deployment.
-
-```bash
-# Build and deploy
-gcloud builds submit --config cloudbuild.yaml
-
-# Map custom domain
-gcloud run domain-mappings create --service gameclaw --domain gogameclaw.com --region us-central1
-```
-
-**Google Cloud project:** `gameclaw-492005`
-
-## API Reference
-
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/games` | List supported games | No |
-| POST | `/api/auth/register` | Register account | No |
-| GET | `/api/user/accounts` | List linked accounts | Yes |
-| POST | `/api/user/accounts` | Link game account | Yes |
-| POST | `/api/checkin` | Check in all games | Yes |
-| POST | `/api/checkin/:gameId` | Check in specific game | Yes |
-| GET | `/api/checkin/history` | Check-in history | Yes |
-| POST | `/api/agent` | Agent API for skill | Yes |
-
-## Tech Stack
-
-- **Framework:** Next.js 16 (App Router)
-- **Auth:** NextAuth.js v5 (Google, Apple, Credentials)
-- **Database:** PostgreSQL + Prisma ORM
-- **i18n:** next-intl
-- **Styling:** Tailwind CSS v4
-- **Deployment:** Google Cloud Run
-- **Language:** TypeScript
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
+- Next.js 16 App Router · TypeScript · Tailwind v4 · next-intl (en/zh/ja/ko)
+- Auth: NextAuth.js v5 (Google, Apple, Credentials)
+- Database: PostgreSQL + Prisma ORM (Cloud SQL in prod)
+- Encryption: AES-256-GCM at rest, Secret Manager for service keys
+- Deployment: Google Cloud Run + Cloud Build + Cloud Scheduler
+- LLM: `@anthropic-ai/sdk` with prompt caching (Opus 4.7 for planner, Sonnet 4.6 for vision verifier, Haiku 4.5 for reporter)
+- Billing: PayPal Subscriptions API + monthly UsageMeter
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).

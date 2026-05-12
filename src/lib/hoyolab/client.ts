@@ -24,10 +24,12 @@ export class HoYoLabClient {
   async request<T>(
     url: string,
     method: "GET" | "POST" = "GET",
-    body?: Record<string, unknown>
+    body?: Record<string, unknown>,
+    extraHeaders?: Record<string, string>
   ): Promise<HoYoLabResponse<T>> {
     const headers: Record<string, string> = {
       ...HOYOLAB_HEADERS,
+      ...(extraHeaders ?? {}),
       Cookie: this.cookieHeader,
     };
 

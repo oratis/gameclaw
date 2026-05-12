@@ -12,6 +12,7 @@ import {
   performMiyousheCheckin,
   getMiyousheCheckinInfo,
 } from "@/lib/miyoushe/checkin";
+import { performMiyousheBbsSign } from "@/lib/miyoushe/bbs";
 import {
   MIYOUSHE_GAMES,
   type MiyousheGameSlug,
@@ -37,6 +38,7 @@ const MIYOUSHE_CAPABILITIES: Capability[] = [
   "checkin",
   "checkin_info",
   "list_accounts",
+  "bbs_daily_task",
 ];
 
 function requireMiyousheCreds(c: Credentials): MiyousheCredentials {
@@ -131,6 +133,18 @@ function createMiyousheAdapter(slug: MiyousheGameSlug): GameAdapter {
             status: "success",
             message: `${accounts.length} account(s) found for ${game.name}`,
             data: accounts,
+          };
+        }
+
+        case "bbs_daily_task": {
+          const r = await performMiyousheBbsSign(c, slug);
+          return {
+            status: r.alreadyDone
+              ? "already_done"
+              : r.ok
+                ? "success"
+                : "failed",
+            message: r.message,
           };
         }
 

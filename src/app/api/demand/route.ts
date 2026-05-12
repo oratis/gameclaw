@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasAdapter } from "@/adapters";
+import { checkRateLimit, clientIp } from "@/lib/util/ratelimit";
 
 const MAX_FIELD_LEN = 500;
 
@@ -20,6 +21,23 @@ function clip(s: unknown): string {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
+
+  // Rate-limit per-IP: 5 demands per hour per instance. Public endpoint,
+  // best-effort spam dampening.
+  const rl = checkRateLimit({
+    key: clientIp(req.headers),
+    limit: 5,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded — try again later" },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
+      }
+    );
+  }
 
   let body: Record<string, unknown>;
   try {

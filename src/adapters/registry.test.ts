@@ -27,14 +27,17 @@ describe("adapter registry", () => {
     expect(a?.credentialFields[0].key).toBe("hgToken");
   });
 
-  it("Skland and Kuro both expose bbs_daily_task capability", () => {
+  it("every vendor exposes bbs_daily_task capability", () => {
     expect(getAdapter("arknights")?.capabilities).toContain("bbs_daily_task");
     expect(getAdapter("wuwa")?.capabilities).toContain("bbs_daily_task");
+    expect(getAdapter("genshin")?.capabilities).toContain("bbs_daily_task");
+    expect(getAdapter("genshin-cn")?.capabilities).toContain("bbs_daily_task");
   });
 
-  it("HoYoLab adapters do not yet expose bbs_daily_task (deferred)", () => {
-    expect(getAdapter("genshin")?.capabilities).not.toContain("bbs_daily_task");
-    expect(getAdapter("genshin-cn")?.capabilities).not.toContain("bbs_daily_task");
+  it("HoYoLab adapters expose account_status and redeem_code", () => {
+    const g = getAdapter("genshin");
+    expect(g?.capabilities).toContain("account_status");
+    expect(g?.capabilities).toContain("redeem_code");
   });
 
   it("returns null for unknown slug", () => {

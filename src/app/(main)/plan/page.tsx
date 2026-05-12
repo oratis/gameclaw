@@ -244,21 +244,50 @@ export default function PlanPage() {
             )}
 
             {planResp.plan.tasks.length > 0 && (
-              <Button
-                onClick={handleExecute}
-                className="w-full"
-                disabled={executing}
-              >
-                {executing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Running...
-                  </>
-                ) : (
-                  <>
-                    Run plan <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  onClick={handleExecute}
+                  className="flex-1"
+                  disabled={executing}
+                >
+                  {executing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Running...
+                    </>
+                  ) : (
+                    <>
+                      Run plan <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={async () => {
+                    const name = window.prompt(
+                      "Save as routine — name this template:",
+                      "My daily routine"
+                    );
+                    if (!name) return;
+                    const res = await fetch("/api/templates", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        name,
+                        steps: planResp.plan.tasks,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                      setError(data.error || "Failed to save template");
+                    } else {
+                      window.alert(`Saved as "${data.template.name}"`);
+                    }
+                  }}
+                  className="bg-white/5 hover:bg-white/10"
+                  disabled={executing}
+                >
+                  Save as routine
+                </Button>
+              </div>
             )}
           </div>
         )}

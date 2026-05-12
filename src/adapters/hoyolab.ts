@@ -8,6 +8,9 @@
 import { GAMES } from "@/lib/hoyolab/constants";
 import { performCheckin, getCheckinInfo } from "@/lib/hoyolab/checkin";
 import { getGameAccounts } from "@/lib/hoyolab/account";
+import { getAccountStatus } from "@/lib/hoyolab/account_status";
+import { performHoYoLabBbsSign } from "@/lib/hoyolab/bbs";
+import { redeemCode } from "@/lib/hoyolab/redeem";
 import type { GameSlug } from "@/types/games";
 import type {
   AccountInfo,
@@ -28,7 +31,19 @@ const HOYOLAB_CAPABILITIES: Capability[] = [
   "checkin",
   "checkin_info",
   "list_accounts",
+  "account_status",
+  "bbs_daily_task",
+  "redeem_code",
 ];
+
+/** appCode parameter used by HoYoLab's BBS post-action API (per-game). */
+const HOYOLAB_BBS_GAME_ID: Record<GameSlug, number> = {
+  genshin: 2,
+  starrail: 6,
+  zzz: 8,
+  honkai3rd: 1,
+  tears: 4,
+};
 
 // game_biz prefix returned by HoYoLab's getUserGameRolesByCookie API.
 // Matches both global ("hk4e_global") and CN ("hk4e_cn") variants.
@@ -114,6 +129,48 @@ function createHoYoLabAdapter(slug: GameSlug): GameAdapter {
             status: "success",
             message: `${accounts.length} account(s) found for ${game.name}`,
             data: accounts,
+          };
+        }
+
+        case "account_status": {
+          const res = await getAccountStatus(slug, ltokenV2, ltuidV2);
+          if (!res.ok) return { status: "failed", message: res.message };
+          return {
+            status: "success",
+            message: res.summary ?? res.message,
+            data: res.data,
+          };
+        }
+
+        case "bbs_daily_task": {
+          const gameBbsId = HOYOLAB_BBS_GAME_ID[slug];
+          const r = await performHoYoLabBbsSign(ltokenV2, ltuidV2, gameBbsId);
+          return {
+            status: r.alreadyDone
+              ? "already_done"
+              : r.ok
+                ? "success"
+                : "failed",
+            message: r.message,
+          };
+        }
+
+        case "redeem_code": {
+          const code = task.params?.code as string | undefined;
+          if (!code) {
+            return {
+              status: "failed",
+              message: "redeem_code requires params.code (the gift code)",
+            };
+          }
+          const r = await redeemCode(slug, ltokenV2, ltuidV2, code);
+          return {
+            status: r.alreadyRedeemed
+              ? "already_done"
+              : r.ok
+                ? "success"
+                : "failed",
+            message: r.message,
           };
         }
 

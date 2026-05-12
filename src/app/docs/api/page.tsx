@@ -1,20 +1,10 @@
-import dynamic from "next/dynamic";
+import { ClientSwagger } from "./ClientSwagger";
 
 export const metadata = {
   title: "API Reference · GameClaw",
   description:
     "Interactive OpenAPI 3.1 reference for the GameClaw API. Try requests against the live service from the docs.",
 };
-
-// Render swagger-ui client-side only — its CSS + DOM manipulation isn't SSR-safe.
-const SwaggerExplorer = dynamic(() => import("./SwaggerExplorer"), {
-  ssr: false,
-  loading: () => (
-    <div className="px-4 py-12 text-center text-sm text-gray-500">
-      Loading API reference…
-    </div>
-  ),
-});
 
 export default function ApiDocsPage() {
   return (
@@ -32,7 +22,7 @@ export default function ApiDocsPage() {
           </p>
         </div>
       </div>
-      <SwaggerExplorer />
+      <ClientSwagger />
     </div>
   );
 }

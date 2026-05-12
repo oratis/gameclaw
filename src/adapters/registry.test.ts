@@ -12,6 +12,7 @@ describe("adapter registry", () => {
     expect(slugs).toContain("tears");
     // Kuro
     expect(slugs).toContain("wuwa");
+    expect(slugs).toContain("punishing");
     // Miyoushe (HoYo CN)
     expect(slugs).toContain("genshin-cn");
     expect(slugs).toContain("starrail-cn");
@@ -58,6 +59,15 @@ describe("adapter registry", () => {
     expect(a?.authMethod).toBe("token");
     expect(a?.capabilities).toContain("checkin");
     expect(a?.credentialFields[0].key).toBe("token");
+  });
+
+  it("Punishing: Gray Raven (战双) is wired as a Kuro adapter", () => {
+    const a = getAdapter("punishing");
+    expect(a?.vendor).toBe("kuro");
+    expect(a?.authMethod).toBe("token");
+    expect(a?.capabilities).toContain("checkin");
+    expect(a?.capabilities).toContain("bbs_daily_task");
+    expect(a?.displayName).toMatch(/Punishing/);
   });
 
   it("every adapter declares non-empty capabilities and credential fields", () => {

@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { OAuthButtons } from "./OAuthButtons";
+import { TurnstileWidget } from "./TurnstileWidget";
 import Link from "next/link";
 
 export function SignInForm() {
@@ -17,15 +18,25 @@ export function SignInForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+
+  const captchaRequired = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (captchaRequired && !turnstileToken) {
+      setError("Please complete the CAPTCHA");
+      return;
+    }
+
     setLoading(true);
 
     const result = await signIn("credentials", {
       email,
       password,
+      turnstileToken: turnstileToken ?? "",
       redirect: false,
     });
 
@@ -72,7 +83,16 @@ export function SignInForm() {
           required
         />
 
-        <Button type="submit" className="w-full" disabled={loading}>
+        <TurnstileWidget
+          onToken={(tok) => setTurnstileToken(tok)}
+          onExpire={() => setTurnstileToken(null)}
+        />
+
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={loading || (captchaRequired && !turnstileToken)}
+        >
           {loading ? tCommon("loading") : tCommon("signIn")}
         </Button>
       </form>

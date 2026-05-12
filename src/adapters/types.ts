@@ -16,9 +16,12 @@ export type Capability =
   | "bbs_daily_task"        // forum/BBS daily tasks (community signin, multi-board signin)
   | "redeem_code"           // exchange a gift code for in-game rewards
   | "account_status"        // read-only "daily note" — resin / trailblaze power / etc.
-  // Tier 2 — semi-public client API (next milestone)
-  | "mail_claim"            // claim in-game mail rewards
-  | "stamina_spend"         // dispatch / commission to consume stamina
+  // Tier 2 — see T2_T3_BOUNDARY.md: these two need the L3 worker fleet for
+  // all current vendors (no public mail / stamina write endpoints exist).
+  // Schedule them at your own risk — they'll fail with a clear message until
+  // M3 ops ship the worker runners.
+  | "mail_claim"            // claim in-game mail rewards (L3-only)
+  | "stamina_spend"         // dispatch / commission to consume stamina (L3-only)
   // Tier 3 — L3 vision worker (Pro+ only; M3 fleet not yet deployed)
   | "weekly_dungeon"        // weekly bosses, dungeons, end-game gauntlets
   | "infrastructure_shift"  // Arknights base management (MAA's strength)

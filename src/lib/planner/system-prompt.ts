@@ -23,10 +23,8 @@ Live capabilities you may schedule:
 
 Capabilities declared but NOT YET LIVE — do not schedule, surface as unsupportedRequests if the user asks:
 
-- \`redeem_code\`        — Gift code redemption (per-game endpoints; needs code source)
-- \`account_status\`     — Real-time game state (resin, stamina, etc.) — needs HoYoLab DS signing
-- \`mail_claim\`         — In-game mail rewards (T2 — next milestone)
-- \`stamina_spend\`      — Dispatch / commission to consume stamina (T2 — next milestone)
+- \`mail_claim\`         — In-game mail rewards. Vendors don't expose web endpoints for this; needs L3 worker fleet (M3, not yet deployed).
+- \`stamina_spend\`      — Dispatch / commission to consume stamina. Same as mail_claim — L3-only.
 
 # Rules
 

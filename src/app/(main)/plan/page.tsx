@@ -60,6 +60,8 @@ export default function PlanPage() {
   const [executing, setExecuting] = useState(false);
   const [results, setResults] = useState<ExecutionResult[] | null>(null);
   const [error, setError] = useState("");
+  const [streamText, setStreamText] = useState("");
+  const [streamThinking, setStreamThinking] = useState("");
 
   function displayName(slug: string): string {
     return planResp?.accounts.find((a) => a.slug === slug)?.displayName ?? slug;
@@ -70,9 +72,11 @@ export default function PlanPage() {
     setError("");
     setPlanResp(null);
     setResults(null);
+    setStreamText("");
+    setStreamThinking("");
     setPlanning(true);
     try {
-      const res = await fetch("/api/plan", {
+      const res = await fetch("/api/plan/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -80,11 +84,78 @@ export default function PlanPage() {
           locale: typeof navigator !== "undefined" ? navigator.language : undefined,
         }),
       });
-      const data = await res.json();
+
       if (!res.ok) {
-        setError(data.error || "Planner failed");
-      } else {
-        setPlanResp(data);
+        const data = await res.json().catch(() => ({}));
+        setError((data as { error?: string }).error || "Planner failed");
+        setPlanning(false);
+        return;
+      }
+      if (!res.body) {
+        setError("Streaming not supported by this browser");
+        setPlanning(false);
+        return;
+      }
+
+      // SSE parse: chunks contain `event: <name>\ndata: <json>\n\n` frames.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let plan: Plan | null = null;
+      let usage: PlanResponse["usage"] | null = null;
+      let accounts: PlanResponse["accounts"] | null = null;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        // Split on the SSE frame boundary
+        let idx;
+        while ((idx = buf.indexOf("\n\n")) !== -1) {
+          const frame = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          const lines = frame.split("\n");
+          let event = "message";
+          let data = "";
+          for (const ln of lines) {
+            if (ln.startsWith("event: ")) event = ln.slice(7).trim();
+            else if (ln.startsWith("data: ")) data += ln.slice(6);
+          }
+          if (!data) continue;
+          try {
+            const parsed = JSON.parse(data);
+            switch (event) {
+              case "thinking":
+                setStreamThinking((prev) => prev + parsed);
+                break;
+              case "text":
+                setStreamText((prev) => prev + parsed);
+                break;
+              case "plan":
+                plan = parsed as Plan;
+                break;
+              case "usage":
+                usage = parsed as PlanResponse["usage"];
+                break;
+              case "accounts":
+                accounts = parsed as PlanResponse["accounts"];
+                break;
+              case "error":
+                setError(
+                  parsed.error || "Planner stream error"
+                );
+                break;
+            }
+          } catch {
+            // ignore malformed frame
+          }
+        }
+      }
+
+      if (plan && usage && accounts) {
+        setPlanResp({ plan, usage, accounts });
+      } else if (!plan) {
+        setError("Planner stream ended without a plan");
       }
     } catch {
       setError("Network error — please try again");
@@ -172,6 +243,27 @@ export default function PlanPage() {
             )}
           </Button>
         </form>
+
+        {/* Streaming preview — visible while planning, then replaced by the parsed plan card */}
+        {planning && (streamThinking || streamText) && (
+          <Card className="mb-6 border-emerald-500/20 bg-emerald-500/5">
+            {streamThinking && (
+              <details className="mb-3 text-xs text-gray-400" open>
+                <summary className="cursor-pointer text-gray-300">
+                  Thinking ({streamThinking.length} chars)
+                </summary>
+                <pre className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap font-mono text-[11px]">
+                  {streamThinking}
+                </pre>
+              </details>
+            )}
+            {streamText && (
+              <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap font-mono text-[11px] text-gray-300">
+                {streamText}
+              </pre>
+            )}
+          </Card>
+        )}
 
         {planResp && (
           <div className="space-y-6">

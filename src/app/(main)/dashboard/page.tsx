@@ -339,29 +339,34 @@ export default function DashboardPage() {
             <Card>
               <ul className="divide-y divide-white/5">
                 {tasks.map((task) => (
-                  <li key={task.id} className="flex items-center gap-3 py-2 text-sm">
-                    <span className="font-mono text-xs text-gray-500 w-32 shrink-0">
-                      {new Date(task.createdAt).toLocaleString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    <span className="flex-1 truncate text-gray-200">
-                      {adapterFor(task.gameSlug)?.displayName ?? task.gameSlug}
-                    </span>
-                    <span className="font-mono text-[11px] text-gray-400">
-                      {task.capability}
-                    </span>
-                    <span className="font-mono text-[10px] text-gray-600">
-                      {task.triggeredBy}
-                    </span>
-                    <span
-                      className={`rounded px-1.5 py-0.5 text-[11px] ${STATUS_PILL[task.status] ?? "bg-white/10 text-gray-300"}`}
+                  <li key={task.id}>
+                    <Link
+                      href={`/dashboard/tasks/${task.id}`}
+                      className="flex items-center gap-3 py-2 text-sm transition-colors hover:bg-white/[0.02]"
                     >
-                      {task.status}
-                    </span>
+                      <span className="font-mono text-xs text-gray-500 w-32 shrink-0">
+                        {new Date(task.createdAt).toLocaleString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      <span className="flex-1 truncate text-gray-200">
+                        {adapterFor(task.gameSlug)?.displayName ?? task.gameSlug}
+                      </span>
+                      <span className="font-mono text-[11px] text-gray-400">
+                        {task.capability}
+                      </span>
+                      <span className="font-mono text-[10px] text-gray-600">
+                        {task.triggeredBy}
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[11px] ${STATUS_PILL[task.status] ?? "bg-white/10 text-gray-300"}`}
+                      >
+                        {task.status}
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
